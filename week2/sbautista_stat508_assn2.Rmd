@@ -1,0 +1,92 @@
+---
+title: "STAT 508 Data Analysis Assignment 2"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+  html_notebook: default
+  html_document:
+    df_print: paged
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>')
+```
+
+# 0. Data load
+
+```{r}
+library(ISLR)
+library(ggplot2)
+library(car)
+library(gvlma)
+```
+
+- `ISLR` for the data
+- `ggplot2` for `qplot()`
+- `car` for lm diagnostics
+- `gvlma` for more verbose lm summary
+
+```{r}
+# Regression and results
+# More verbose results from `gvlma`
+df = Carseats
+reg = lm(Sales ~ ., data=df) 
+summary(gvlma(reg, alphalevel=0.01))
+```
+## TODO: Add in interpretation of results here
+
+# 1. Regression diagnostics
+```{r}
+# Plotting fitted values vs. studentized residuals
+# Could alternatively use plot(reg) for 4 quick diagnostic plots
+qplot(fitted(reg), rstudent(reg))
+```
+No visible evidence of any patterns suggesting heteroskedasticity or nonlinearities in the residuals.
+
+Are they approximately normal with mean zero? 
+
+
+```{r message=FALSE}
+# Histogram of residuals
+qplot(rstudent(reg))
+```
+The studentized residuals appear to be roughly normally distributed with mean 0.
+
+```{r}
+# Trying out diagnostic functions from `car`
+outlierTest(reg) 
+```
+The largest outlier has a Bonferonni p > 0.05, so there is no evidence of outliers.
+
+
+```{r}
+# Breusch-Pagan test for heteroskedasticity
+ncvTest(reg)
+```
+Since p is large, we fail to reject the null of homoskedasticity.
+
+This is consistent with the lack of a pattern we saw when plotting the residuals vs fitted values.
+
+```{r}
+# VIF for multicollinearity
+vif(reg)
+```
+The largest VIF is 2.1 (1.5 after scaling).
+Since a VIF of > 5 to 10 indicates multicollinearity, there appears to be no proof of multicollinearity among these features.
+
+```{r}
+# Durbin-Watson test for serial correlation
+dwt(reg)
+```
+It looks like we have cross sectional data so we don't really need to test for autocorrelation, but it's always nice to test.
+
+We fail to reject the null of no autocorrelation because p is large (no evidence of autocorrelation).
+
+# 2. Alternate specifications
+
+```{r}
+
+```
+
+# 3. Conclusion
