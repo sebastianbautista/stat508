@@ -1,8 +1,10 @@
 *.Rproj.user
-*.Rhistory
-*.RData
-*.Ruserdata
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
 *.pdf
 *.txt
 *.csv
 *.html
+.ipynb_checkpoints/
