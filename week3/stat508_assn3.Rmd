@@ -1,0 +1,313 @@
+---
+title: "STAT 508 Data Analysis Assignment 3"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+  html_notebook:
+    code_folding: hide
+    fig_caption: yes
+  html_document:
+    code_folding: hide
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>')
+
+library(Matrix)
+
+generate.y = function(copies, X, b) { # given X and betas(?), generate a `copies` long vector of `y`
+  lapply(1:copies, function(i) X%*%b + rnorm(nrow(X),0,1))
+} #generate.y
+
+beta.hat = function(sam=c(1:nrow(X)), A, X, y.vec) { # least-squares estimate of beta (vector), stored in a list
+  b = vector("list", length(A)) # initialize list of same length as length of A
+  for (i in 1:length(A)) { # using subset of X corresponding to columns in A[[i]] and observations in 'sam'
+    b[[i]] = solve( t(X[sam, A[[i]]]) %*% X[sam, A[[i]]] ) %*% t(X[sam, A[[i]]]) %*% y.vec 
+  }
+  return(b)
+} # beta.hat
+
+get.ASPE = function(sam=c(1:nrow(X)), A, X, z, w) { # average squared prediction error
+  PE = vector("list", length(z)) # initialize list of lists
+  for (k in 1:length(z)) {
+    PE[[k]] = vector("list", length(A))
+  }
+  for (i in 1:length(A)) {
+    if (length(X[-sam, A[[i]]]) > 0) {
+      for (k in 1:length(z)) {
+        PE[[k]][[i]] = (1/length(z[[k]])) * sum( ( z[[k]] - X[-sam, A[[i]]] %*% w[[k]][[i]] )^2)
+      }
+    }
+  }
+  return(PE)
+} # get.ASPE
+
+optimal.models = function(A, X, y) {
+  # Split the data using 1/3 for training and 2/3 for testing
+  sam = sample(c(1:nrow(X)), round(nrow(X)/3, 0))
+  ym = vector("list", length(y))
+  yl = vector("list", length(y))
+  for (i in 1:length(y)) {
+    ym[[i]] = y[[i]][sam]
+    yl[[i]] = y[[i]][-sam]
+  }
+ 
+  # Compute least-squares estimate using only the training set
+  b = vector("list", length(ym))
+  for (i in 1:length(ym)) {
+    b[[i]] = beta.hat(sam, A, X, ym[[i]]) 
+  }
+  # Evaluating average squared prediction error using the testing part of the data
+  ASPE = get.ASPE(sam, A, X, yl, b)
+  # Pick out the model with the smallest average squared prediction error
+  optimal.val = sapply(lapply(ASPE, function(x) sort(unlist(x))), function(x) x[1])
+  optimal.mod = vector("character",length(optimal.val))
+  for (i in 1:length(optimal.val)) {
+    tmp = names(A[abs(unlist(ASPE[[i]]) - optimal.val[i]) < 0.0001]) # equal to smallest ASPE to within 0.0001 precision (can be modified)
+    if (length(tmp) > 1) { # in case of (near) ties, break tie at random
+      optimal.mod[i] = sample(tmp, 1)
+    } else{
+      optimal.mod[i] = tmp
+    }
+  }
+  # tabulate the findings, including any models for which the frequency of selection is zero
+  freq = vector("integer", length(A))
+  names(freq) = names(A)
+  freq[names(table(optimal.mod))] = table(optimal.mod)
+ 
+  # return the frequency table as well as the subset of observations selected for the training set
+  return(list(freq=freq, train=sort(sam))) 
+} # optimal.models
+
+######################
+obs = 100
+## Create collection of models
+x1 = rep(1,obs)
+x2 = 5*(1:obs) / obs
+x3 = x2*sqrt(x2)
+x4 = x2^2
+x5 = log(x2)
+x6 = x2*x5
+X = cbind(x1,x2,x3,x4,x5,x6)
+dimnames(X)[[1]] = c(1:obs)
+rm(x1,x2,x3,x4,x5,x6,obs) # clean up: variables only needed to build the input matrix X
+A = list(c(1,2,3,5,6), c(1,2,4,5,6), 
+         c(1,2,5,6), c(1,3,5,6), c(1,4,5,6),c(2,3,5,6), c(2,4,5,6), 
+         c(1,2,3), c(1,2,4), c(1,2,5), c(1,2,6), c(4,5,6),
+         c(1,2), c(1,3), c(1,5), c(4,5), c(2,4))
+names(A) = c("(1,2,3,5,6)", "(1,2,4,5,6)", 
+             "(1,2,5,6)", "(1,3,5,6)", "(1,4,5,6)", "(2,3,5,6)", "(2,4,5,6)", 
+             "(1,2,3)", "(1,2,4)", "(1,2,5)", "(1,2,6)", "(4,5,6)", 
+             "(1,2)", "(1,3)", "(1,5)", "(4,5)", "(2,4)") 
+get.Cp = function(A, X, z, w) {
+  Cp = vector("list", length(z)) # initialize list of lists
+  for (k in 1:length(z)) {
+    Cp[[k]] = vector("list", length(A))
+  }
+ 
+  for (i in 1:length(A)) {
+    for (k in 1:length(z)) {
+      # get estimate of variance from largest model that (you hope) contains the true model
+      sigma2 = summary(lm(z[[k]] ~ -1 + X[,1] + X[,2] + X[,3] + X[,4] + X[,5] + X[,6]))$sigma^2
+      # compute Cp using formula (6.2) in ISLR Section 6.1.3
+      Cp[[k]][[i]] = (1/nrow(X))*(sum((z[[k]] - X[, A[[i]]] %*% w[[k]][[i]])^2) + 2*length(A[[i]])*sigma2)
+    }
+  }
+  return(Cp)
+} # get.Cp
+
+optimal.models.Cp = function(A, X, y) {
+ 
+  # Compute least-squares estimates using full data
+  b = vector("list", length(y))
+  for (i in 1:length(y)) {
+    b[[i]] = beta.hat(A=A, X=X, y.vec=y[[i]]) 
+  }
+ 
+  # Evaluate Mallows Cp
+  Cp = get.Cp(A, X, y, b)
+ 
+  # Pick out the model with the smallest value
+  optimal.val = sapply(lapply(Cp, function(x) sort(unlist(x))), function(x) x[1])
+  optimal.mod = vector("character",length(optimal.val))
+  for (i in 1:length(optimal.val)) {
+    tmp = names(A[abs(unlist(Cp[[i]]) - optimal.val[i]) < 0.0001]) # equal to smallest Cp to within 0.0001 precision (can be modified)
+    if (length(tmp) > 1) { # in case of (near) ties, break tie at random
+      optimal.mod[i] = sample(tmp, 1)
+    } else{
+      optimal.mod[i] = tmp
+    }
+  }
+ 
+  # tabulate the findings, including any models for which the frequency of selection is zero
+  freq = vector("integer", length(A))
+  names(freq) = names(A)
+  freq[names(table(optimal.mod))] = table(optimal.mod)
+ 
+  # return the frequency table as well as the subset of observations selected for the training set
+  return(list(freq=freq)) 
+} # optimal.models.Cp
+```
+
+# 0. Introduction
+
+# 1. Data
+
+# 2. Analyses
+
+## Part I
+
+Q: Summarize the findings from these two simulations. How likely is the procedure to correctly learn the "true" model? Which simulation/implementation of the learner performs better? Why do you think that is? Explain.
+
+# 3. Plots and Tables
+
+## Part 1 - Simulation 1
+```{r}
+## Simulation 1: Distribution of optimal models for fixed split over different instances of y
+copies = 1000
+set.seed(17)
+ylist = generate.y(copies, X[, A[[9]]], rep(2,3))
+set.seed(11)
+seed.optimal = optimal.models(A, X, ylist)
+seed.optimal
+plot(seed.optimal$freq, type="h", main=paste("Proportion of times each model is selected as the optimal model\n for an arbitrary but fixed split over", copies, "instances of y"), xlab="", ylab="", bty="n", axes=F)
+axis(1, at=1:length(A), labels=names(A), las=2)
+points(1:length(A), seed.optimal$freq, pch=20)
+text(x=1:length(A), y=seed.optimal$freq+copies/100, labels=round(seed.optimal$freq/copies, 2), cex=0.7)
+```
+"For each copy of y, a (possibly) different optimal model will be selected, based solely on random variation in the data generating mechanism. You can then assess the performance of the procedure for a single fixed split by looking at how many times each of the 17 models indexed by A was selected as optimal. Ideally, the true model is selected most of the times."
+
+In this simulation, we use a single fixed train-test split and 1000 different copies of our dependent variable vector.
+
+Here, we see that the true model is selected 39% of the time, or 390 out of the 1000 runs.
+
+Coming up in second place, (2,4,5,6) is selected 17% of the time, less than half of the frequency that the true model is selected. The rest of the models are selected 0% to 11% of the time, so this implementation involving varying the response variable and keeping the train-test split fixed looks to be fairly good at selecting the true model.
+
+## Part 1 - Simulation 2
+```{r}
+## Simulation 2: Distribution of optimal models for single instance of y over multiple splits
+splits = 1000
+set.seed(17)
+ylist = generate.y(1, X[, A[[9]]], rep(2,3))
+set.seed(11)
+iter.optimal = vector("list", splits)
+for (iter in 1:splits) {
+ iter.optimal[[iter]] = optimal.models(A, X, ylist)
+}
+## Sum across iterations to get frequency of selection of each model
+iter.freq = iter.optimal[[1]]$freq
+for (iter in 2:splits) {
+ iter.freq = iter.freq + iter.optimal[[iter]]$freq
+}
+iter.freq
+plot(iter.freq, type="h", main=paste("Proportion of times each model is selected as the optimal model\n for a single instance of y over", splits, "splits"), xlab="", ylab="", bty="n", axes=F)
+axis(1, at=1:length(A), labels=names(A), las=2)
+points(1:length(A), iter.freq, pch=20)
+text(x=1:length(A), y=iter.freq+splits/100, labels=round(iter.freq/splits, 2), cex=0.7)
+```
+
+In this simulation, we use 1000 different train-test splits and use a single copy of the dependent variable vector.
+
+Here, the true model is selected 32% of the time, or 320 times out of 1000 runs. Compared to the previous result of 39%, this implementation of the learner seems slightly less likely to correctly learn the true model, though both successfully picked out the true model.
+
+Interestingly, the rank-ordering of the other models changes completely. In second place with 20% is (2,3,5,6), which came in third previously. The model that was ranked second in the first implementation, (2,4,5,6), is chosen less than 1% of the time under this implementation.
+
+Tied for third place are (1,2,3,5,6) and (1,4,5,6), which are both selected at over half of the frequency as the true model. Compared to the previous implementation, a lower number of incorrect models are chosen, but certain incorrect models are chosen more frequently. Because of this, the first implementation of the learner performs better.
+
+## Part 2
+```{r}
+# "Now, suppose you want to compare the performance of the Monte Carlo learners in simulations 1 and 2 to the performance of Mallows' Cp in model selection. See ISLR Section 6.1.3 (Links to an external site.)Links to an external site. for the definition of Mallows' Cp criterion."
+
+# Frequency table is not very informative
+# Want to run the other freq table over the 'copies' of the data
+
+# "However, please note that the Cp method will still be using all the columns of X to compute the estimate of the error variance, as well as all the rows in X (no training and testing sets). So, the algorithm will be considerably slower to run depending on the number of copies of y requested and your computer specs. You may want to try a smaller number of 'copies' than 1000, say 500 or 100. (For the purpose of Cp, only the settings of Simulation #1 is relevant, since the data are not split.)"
+
+copies = 1000
+
+set.seed(17)
+ylist = generate.y(copies, X[, A[[9]]], rep(2,3))
+set.seed(11)
+Cp.optimal = optimal.models.Cp(A, X, ylist)
+Cp.optimal
+plot(Cp.optimal$freq, type="h", main=paste("Proportion of times each model is selected as the optimal model\n for an arbitrary but fixed split over", copies, "instances of y"), xlab="", ylab="", bty="n", axes=F)
+axis(1, at=1:length(A), labels=names(A), las=2)
+points(1:length(A), Cp.optimal$freq, pch=20)
+text(x=1:length(A), y=Cp.optimal$freq+copies/100, labels=round(Cp.optimal$freq/copies, 2), cex=0.7)
+```
+
+It looks like Mallows' Cp does very well in model selection. The true model, (1,2,4), is chosen 68% of the time - more than six times the frequency as (2,4,5,6), which was chosen 11% of the time. 
+
+**insert something about the difference between Cp and whatever metric was used earlier**
+
+## Part 3
+
+```{r}
+# Part 3 - changing definition of `x2`
+obs = 100
+## Create collection of models
+x1 = rep(1,obs)
+x2 = 1*(1:obs) / obs
+x3 = x2*sqrt(x2)
+x4 = x2^2
+x5 = log(x2)
+x6 = x2*x5
+X = cbind(x1,x2,x3,x4,x5,x6)
+dimnames(X)[[1]] = c(1:obs)
+rm(x1,x2,x3,x4,x5,x6,obs) # clean up: variables only needed to build the input matrix X
+A = list(c(1,2,3,5,6), c(1,2,4,5,6), 
+         c(1,2,5,6), c(1,3,5,6), c(1,4,5,6),c(2,3,5,6), c(2,4,5,6), 
+         c(1,2,3), c(1,2,4), c(1,2,5), c(1,2,6), c(4,5,6),
+         c(1,2), c(1,3), c(1,5), c(4,5), c(2,4))
+names(A) = c("(1,2,3,5,6)", "(1,2,4,5,6)", 
+             "(1,2,5,6)", "(1,3,5,6)", "(1,4,5,6)", "(2,3,5,6)", "(2,4,5,6)", 
+             "(1,2,3)", "(1,2,4)", "(1,2,5)", "(1,2,6)", "(4,5,6)", 
+             "(1,2)", "(1,3)", "(1,5)", "(4,5)", "(2,4)") 
+
+## Part 3 - Simulation 1
+## Simulation 1: Distribution of optimal models for fixed split over different instances of y
+copies = 1000
+set.seed(17)
+ylist = generate.y(copies, X[, A[[9]]], rep(2,3))
+set.seed(11)
+seed.optimal = optimal.models(A, X, ylist)
+seed.optimal
+plot(seed.optimal$freq, type="h", main=paste("Proportion of times each model is selected as the optimal model\n for an arbitrary but fixed split over", copies, "instances of y"), xlab="", ylab="", bty="n", axes=F)
+axis(1, at=1:length(A), labels=names(A), las=2)
+points(1:length(A), seed.optimal$freq, pch=20)
+text(x=1:length(A), y=seed.optimal$freq+copies/100, labels=round(seed.optimal$freq/copies, 2), cex=0.7)
+```
+
+**Insert interpretation. The true model is only selected 4% of the time.**
+
+```{r}
+## Simulation 2: Distribution of optimal models for single instance of y over multiple splits
+splits = 1000
+set.seed(17)
+ylist = generate.y(1, X[, A[[9]]], rep(2,3))
+set.seed(11)
+iter.optimal = vector("list", splits)
+for (iter in 1:splits) {
+ iter.optimal[[iter]] = optimal.models(A, X, ylist)
+}
+## Sum across iterations to get frequency of selection of each model
+iter.freq = iter.optimal[[1]]$freq
+for (iter in 2:splits) {
+ iter.freq = iter.freq + iter.optimal[[iter]]$freq
+}
+iter.freq
+plot(iter.freq, type="h", main=paste("Proportion of times each model is selected as the optimal model\n for a single instance of y over", splits, "splits"), xlab="", ylab="", bty="n", axes=F)
+axis(1, at=1:length(A), labels=names(A), las=2)
+points(1:length(A), iter.freq, pch=20)
+text(x=1:length(A), y=iter.freq+splits/100, labels=round(iter.freq/splits, 2), cex=0.7)
+```
+
+**More interpretation. Again, (1,3) is chosen and the true model (1,2,4) is in close to last place. Somewhere to start: changing the constant from 5 to 1 reduces the variance in the variable `x2` which means it has smaller comovements with y, so it becomes less informative and therefore not chosen in the 'best' model.**
+
+# 4. Conclusions
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```
