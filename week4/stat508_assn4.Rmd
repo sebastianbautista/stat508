@@ -1,0 +1,62 @@
+---
+title: "STAT 508 Data Analysis Assignment 4"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>')
+```
+
+# 0. Introduction
+
+This week, we're returning to the Boston data set from the `MASS` library. In this analysis, our response variable is `crim`, the per capita crime rate by town.
+
+# 1. Data
+
+# 2. Analyses
+
+## 2.1 
+
+*Q: Conduct an exploratory data analysis to identify any data peculiarities. Any possible colinearities? Any transformations needed (e.g., logarithm transformation)?*
+
+## 2.2
+
+*Q: Perform best subset selection, the lasso, and ridge regression. Present and discuss results for the approaches that you consider.*
+
+## 2.3
+
+*Q: Propose a model (or set of models) that seem to perform well on this dataset, and justify your proposal. Make sure that you are evaluating model performance using validation set error and/or cross-validation, as shown in ISLR Sections 6.5 and 6.6.*
+
+## 2.4
+
+*Q: Does your chosen model involve all of the features in the data set? Why or why not?*
+
+# 3. Plots and Tables
+
+```{r}
+library(MASS)
+df = Boston
+```
+
+```{r}
+# Scratch work, ideas, etc.
+
+## CHECK MISSINGS?
+sapply(df, function(x) sum(is.na(x)))
+
+## TRANSFORM DEP VAR?
+hist(df$crim) # positive outliers. skew
+df$crim.log = log(df$crim) # new variable. log of dep var
+hist(df$crim.log) # looks better than before
+```
+
+
+
+# 4. Conclusions
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```
