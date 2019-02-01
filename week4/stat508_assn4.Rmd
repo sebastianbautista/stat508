@@ -15,6 +15,8 @@ This week, we're returning to the Boston data set from the `MASS` library. In th
 
 # 1. Data
 
+Our data is a cross-sectional data set with 506 
+
 # 2. Analyses
 
 ## 2.1 
@@ -36,22 +38,221 @@ This week, we're returning to the Boston data set from the `MASS` library. In th
 # 3. Plots and Tables
 
 ```{r}
+# Q: Conduct an exploratory data analysis to identify any data peculiarities. Any possible colinearities? Any transformations needed (e.g., logarithm transformation)?
 library(MASS)
+library(GGally)
+library(car)
+library(leaps)
+library(glmnet)
+
 df = Boston
+
+# check for missings
+sapply(df, function(x) sum(is.na(x)))
 ```
+
+```{r}
+# Boxplot of scaled variables
+# Since glmnet() automatically scales, it's useful to look at the data that is actually passed to the function
+boxplot(scale(df), las=2, main='Variables in base Boston data set, scaled')
+# We can see that `crim`'s distribution is such that there are a lot of values between 0 and 2, with a decent number of outliers >4. This hints that log transformation may be appropriate here.
+# `rm` appears to have a lot of positive and negative outliers - towns with relatively small/large dwellings
+# `dis` has a few positive outliers - a few towns are pretty far from employment centers
+# `black` has a bunch of negative outliers and the IQR is tiny 
+# positive outliers for `lstat` and `medv`
+```
+
+```{r}
+df$crim.log = log(df$crim) # new variable. log of dep var
+boxplot(scale(df), las=2, main='Boston data set with ln(crim), scaled') # looks better
+```
+
+```{r}
+# comparing distributions using histogram
+par(mfrow=c(1,2))
+hist(df$crim) # positive outliers. positive skew
+hist(df$crim.log) # looks better than before
+```
+
+
+```{r}
+ggcorr(df, label=T)
+# The following variable pairs have >0.65 pairwise correlation in absolute value
+# medv, lstat, -0.74
+# medv, rm, 0.70
+# tax, rad, 0.91
+# tax, nox, 0.67
+# tax, indus, 0.72
+# dis, age, -0.75
+# dis, nox, -0.77
+# dis, indus, -0.71
+# dis, zn, 0.66
+# age, nox, 0.73
+# nox, indus, 0.76
+# crim is also positively correlated with tax at 0.58 and rad at 0.63.
+# the new crim.log variable is correlated with tax, rad, dis, age, nox, indus, and crim at >0.65
+# this sheds more light on the relationship between `crim` and other variables.
+# older places with higher taxes, which are closer to highways, closer to employment centers, are more heavily polluted, and have more non-retail business tend to have higher crime.
+```
+
+
+```{r}
+# running a base linear model with all of the variables, no transformations
+reg = lm(crim ~ . - crim.log, df)
+summary(reg)
+```
+
+```{r}
+# Looks really bad.
+plot(reg, which=1)
+```
+
+```{r}
+# same linear model, but with the log dep var
+reg.log = lm(crim.log ~ . - crim, df)
+sm = summary(reg.log)
+sm
+# adjusted r-squared nearly doubles. log transform is a good choice
+```
+```{r}
+# still some issues, but a clear improvement
+plot(reg.log, which=1)
+```
+
+```{r}
+# Calculate MSE
+mean(sm$residuals^2)
+```
+
+
+```{r}
+# based off of the VIF, it looks like `nox` and `dis` have potential issues, while `rad` and `tax` should definitely be looked at and possibly removed.
+round(vif(reg.log), 2)
+```
+
+
+```{r}
+# Q: Perform best subset selection, the lasso, and ridge regression. Present and discuss results for the approaches that you consider.
+
+# best subset selection
+bss = regsubsets(df$crim.log ~ . - df$crim, data=df, nbest=1, nvmax=length(names(df)))
+bss.summary = summary(bss)
+bss.summary
+```
+```{r}
+# plotting RSS, adjR2, Cp, and BIC to compare
+
+par(mfrow=c(2,2))
+
+plot(bss.summary$rss, xlab='# of Variables', ylab='RSS', type='l')
+bss.best.rss = which.min(bss.summary$rss)
+points(bss.best.rss, bss.summary$rss[bss.best.rss], col='red', cex=2, pch=20)
+
+plot(bss.summary$adjr2, xlab='# of Variables', ylab='Adj. R^2', type='l')
+bss.best.adjr2 = which.max(bss.summary$adjr2)
+points(bss.best.adjr2, bss.summary$adjr2[bss.best.adjr2], col='red', cex=2, pch=20)
+
+plot(bss.summary$cp, xlab='# of Variables', ylab="Mallows' Cp", type='l')
+bss.best.cp = which.min(bss.summary$cp)
+points(bss.best.cp, bss.summary$cp[bss.best.cp], col='red', cex=2, pch=20)
+
+plot(bss.summary$bic, xlab='# of Variables', ylab='BIC', type='l')
+bss.best.bic = which.min(bss.summary$bic)
+points(bss.best.bic, bss.summary$bic[bss.best.bic], col='red', cex=2, pch=20)
+
+# all four statistics choose different models
+# RSS chooses the largest model, which makes sense. RSS decreases monotonically with p.
+# AdjR^2 chooses 12, but the more parsimonious models are nearly as good
+# Cp chooses 9
+# BIC chooses 8. Looks like it penalizes models with more covariates, based on the upward slope of the curve after 8. Even though we know Cp penalizes larger models, BIC does this more strongly.
+
+# TODO: TALK ABOUT DIFFERENCES BETWEEN MODELS 8, 9, 12
+```
+
+```{r}
+plot(bss, scale='bic')
+```
+
+```{r}
+# lasso
+df$crim = NULL # getting rid of raw dependent variable
+
+x = model.matrix(crim.log ~ ., df)[,-1]
+y = df$crim.log
+
+# train test split
+set.seed(7)
+train = sample(1:nrow(x), nrow(x)/2)
+test = (-train)
+
+Xtrain = x[train,]
+Xtest = x[test,]
+ytrain = y[train]
+ytest = y[test]
+
+# grid to search over for lambda
+lambda = 10^seq(10, -3, length=1000)
+
+cv.lasso = cv.glmnet(Xtrain, ytrain, alpha=1, lambda=lambda)
+
+lasso.lambda = cv.lasso$lambda.min
+cat("The value of lambda that returns the smallest CV error for lasso is", round(lasso.lambda, 3))
+```
+
+```{r}
+# Now that we have lasso.lambda, we can plug this back in to predict on the test set and calculate MSE
+lasso = glmnet(Xtrain, ytrain, alpha=1, lambda=lambda)
+lasso.yhat = predict(lasso, s=lasso.lambda, newx=Xtest)
+lasso.cv.mse = mean((lasso.yhat - ytest)^2)
+cat("The test set MSE for lasso is", lasso.cv.mse)
+```
+
+```{r}
+# Now for the coefficients associated with lasso
+out = glmnet(x, y, alpha=1)
+
+# Not sure which of these two to use.
+predict(out, type='coefficients', s=lasso.lambda) # refit on whole data set
+predict(lasso, type='coefficients', s=lasso.lambda) # refit just on training
+
+# TODO: more interpretation of results
+```
+
+```{r}
+# ridge
+
+cv.ridge = cv.glmnet(Xtrain, ytrain, alpha=0, lambda=lambda)
+
+ridge.lambda = cv.ridge$lambda.min
+
+cat("The value of lambda that returns the smallest CV error for ridge is", round(ridge.lambda, 3))
+```
+
+```{r}
+# Now that we have ridge.lambda, we can plug this back in to predict on the test set and calculate MSE
+ridge = glmnet(Xtrain, ytrain, alpha=0, lambda=lambda)
+ridge.yhat = predict(ridge, s=ridge.lambda, newx=Xtest)
+ridge.cv.mse = mean((ridge.yhat - ytest)^2)
+cat("The test set MSE for ridge is", ridge.cv.mse)
+```
+
+```{r}
+# Now for the coefficients associated with ridge
+out = glmnet(x, y, alpha=0)
+
+# Not sure which of these two to use.
+predict(out, type='coefficients', s=ridge.lambda) # refit on whole data set
+predict(ridge, type='coefficients', s=ridge.lambda) # refit just on training
+
+# TODO: more interpretation of results
+```
+
 
 ```{r}
 # Scratch work, ideas, etc.
 
-## CHECK MISSINGS?
-sapply(df, function(x) sum(is.na(x)))
 
-## TRANSFORM DEP VAR?
-hist(df$crim) # positive outliers. skew
-df$crim.log = log(df$crim) # new variable. log of dep var
-hist(df$crim.log) # looks better than before
 ```
-
 
 
 # 4. Conclusions
