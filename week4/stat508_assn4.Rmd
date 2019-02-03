@@ -3,19 +3,31 @@ title: "STAT 508 Data Analysis Assignment 4"
 author: "Sebastian Bautista"
 output:
   pdf_document: default
+  html_document:
+    code_folding: hide
 ---
   
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(comment='>')
+
+library(MASS)
+library(GGally)
+library(car)
+library(leaps)
+library(glmnet)
 ```
 
 # 0. Introduction
 
-This week, we're returning to the Boston data set from the `MASS` library. In this analysis, our response variable is `crim`, the per capita crime rate by town.
+This week, we're returning to the Boston data set from the `MASS` library with the goal of predicting per capita crime rate using lasso and ridge regression, and evaluating model performance using cross-validation. 
+
+In section 2.1, I plot boxplots and end up taking the natural log of the response variable because of its positively skewed structure. I prove that this improves the fit of a basic linear model, and I also note that there is some evidence of multicollinearity among our variables. 
+
+In section 2.2, I split the data into training and test sets and perform best subset selection, lasso, and ridge, finding that ridge is probably the most appropriate due to the relationship between our response and our features. I also introduce interaction terms, increasing `p` seven-fold and improving the fit. In 2.3 I attempt to improve the fit even further, but end up proposing an earlier model as the best fit. My final model uses ridge regression, so it involves all of the features plus two-way interaction terms.
 
 # 1. Data
 
-Our data is a cross-sectional data set with 506 
+Our data is a cross-sectional data set with 506 observations and 14 variables, each row representing a town in the Boston suburbs. In this analysis, our response variable is `crim`, the per capita crime rate by town. 
 
 # 2. Analyses
 
@@ -23,241 +35,305 @@ Our data is a cross-sectional data set with 506
 
 *Q: Conduct an exploratory data analysis to identify any data peculiarities. Any possible colinearities? Any transformations needed (e.g., logarithm transformation)?*
 
+In order to look at the distributions of our variables, I scaled the data and plotted box plots in **figure 1a**. Since `glmnet()` automatically scales, I thought it would be useful to look at the scaled data because it's a more accurate picture of the data. There are some outliers for `rm`, `dis`, `black`, `lstat`, and `medv`, but I didn't take any action changing these variables.
+
+Our response variable, `crim`, has a lot of positive outliers and positive skew, hinting that log transformation may be appropriate. Looking at the boxplot in **figure 1b** and the histograms in **figure 2** reveals that taking the natural log of `crim` results in a new variable, `crim.log`, that is much more evenly distributed and less skewed than the raw variable.
+
+**Figure 3** contains a correlation matrix and shows high pairwise correlation between `tax` and `rad` (0.91), among other variables. I will be mostly focusing on our dependent variable(s) here. Although `crim` is only correlated at about 0.6 with both `tax` and `rad`, we can see that `crim.log` is correlated with `tax`, `rad`, `dis`, `age`, `nox`, and `indus` at >0.65. This sheds more light on the relationship between `crim` and other variables compared to just looking at the raw variable alone.
+
+Next, I fit a few linear models to check for any differences in performance using the original response variable versus its log transformation. The results for the first model can be found in **figure 4a**. Adjusted R-squared is about 0.44 and only two variables are significant at the <0.001 level. Plotting the fitted values vs. the residuals in **figure 4b** reveals that there are problems in the higher ranges of our response variable, which makes sense because of the positive outliers in `crim`. The residuals are far from normal and the R-squared is low so it looks like a bad fit.
+
+**Figure 5a** contains the results of running the same model, using `crim.log` instead of `crim` as the response variable. The adjusted R-squared jumps to 0.87 and more variables are statistically significant. Plotting the fitted values and residuals in **figure 5b** shows that the fit looks much better, though there are still a few outliers. In **figure 6**, I check for multicollinearity using the `VIF()` function from the `car` library. At 4.55 and 4.29 respectively, `nox` and `dis` might be worth looking at, but at 7.16 and 9.20 respectively, `rad` and `tax` show some serious signs of multicollinearity in this second model. I refer back to this when specifying the final model in section 2.3.
+
+
 ## 2.2
 
 *Q: Perform best subset selection, the lasso, and ridge regression. Present and discuss results for the approaches that you consider.*
+
+I perform best subset selection in **figure 7**, using half of the data as a training set and the other half as the test set. The winning model contains 10 variables, with MSE of 0.64. The coefficient estimates can be found in the figure. 
+
+**Figure 8a** shows the results of training a lasso model on the training data, calculating test MSE, then refitting on the full data set and reporting coefficients from that fit. The value of `lambda` chosen is 0.046, quite close to 0. The test MSE is 0.664, which represents a very slight decrease in performance compared to the best subset selection results. Lasso performs variable selection, setting 5 variables to 0, effectively choosing an 8-variable model. This lasso run yields a slightly different set of variables compared to best subset selection, but all of the signs of the shared variables are the same.
+
+Wanting to take advantage of the feature selection that comes with using lasso, I decided to fit a second lasso model after blowing up the feature space by creating interaction terms. The results from this run can be found in **figure 8b**. In this model, there are 91 variables, so I thought that lasso would choose a high lambda and help reduce the number of variables. However, the value of lambda chosen in this run is virtually 0, with only 6 variables regularized to 0. The test MSE for this run is 0.613, a slight improvement over the previous two runs. This poor performance and low `lambda` by lasso leads me to conclude that all of the variables contribute similarly to predicting `crim.log` - ridge tends to perform better when the variables are all actually related to the response.
+
+In **figure 9a**, I report results from ridge regression. As expected, all of the variables are regularized proportionally, so none are set to 0 and all enter into the model. The test MSE for this first ridge run is 0.649 - not quite as good as best subset selection. 
+
+**Figure 9b** contains the results from using ridge on the 91-variable data set with interactions. `Lambda` is still very close to zero at 0.016, signalling little regularization, but the test MSE of 0.536 shows a clear improvement over all of the other runs. In this case, because of how ridge shrinks coefficients, all 91 of the variables enter into the equation. 
 
 ## 2.3
 
 *Q: Propose a model (or set of models) that seem to perform well on this dataset, and justify your proposal. Make sure that you are evaluating model performance using validation set error and/or cross-validation, as shown in ISLR Sections 6.5 and 6.6.*
 
+The ridge model with interactions yielded the lowest test MSE, but it may be prudent to refer back to the VIFs in **figure 6** that signalled possible multicollinearity issues with `rad` and `tax`. For my third ridge model, I remove these two variables before creating interaction terms, resulting in a 66 variable model. Results from this final run are in **figure 9c**. This final ridge model has a test MSE of 1.026, the worst so far. 
+
+Judging by these results, it seems like the contributions of `rad` and `tax` (and their interactions with the rest of the variables) are valuable for prediction, despite the high VIFs. That said, my proposal for the best model is ridge with interactions in **figure 9b**. Ridge seems better than lasso on this data set, probably because of how the variables are all useful for predicting `crim.log`, and introducing interaction terms helped improve the fit even more, resulting in our best test MSE of 0.536.
+
 ## 2.4
 
 *Q: Does your chosen model involve all of the features in the data set? Why or why not?*
 
+Yes, my chosen model in **figure 9b** uses ridge and interaction terms, so it involves all of the original features plus interaction terms. L2 regularization doesn't result in shrinking coefficients to 0, so none of the features drop out of the model as they might with lasso. I did try omitting some variables that had multicollinearity issues that were discussed earlier, but this resulted in a worse fit.
+
 # 3. Plots and Tables
 
 ```{r}
-# Q: Conduct an exploratory data analysis to identify any data peculiarities. Any possible colinearities? Any transformations needed (e.g., logarithm transformation)?
-library(MASS)
-library(GGally)
-library(car)
-library(leaps)
-library(glmnet)
-
 df = Boston
-
-# check for missings
-sapply(df, function(x) sum(is.na(x)))
-```
-
-```{r}
-# Boxplot of scaled variables
-# Since glmnet() automatically scales, it's useful to look at the data that is actually passed to the function
 boxplot(scale(df), las=2, main='Variables in base Boston data set, scaled')
-# We can see that `crim`'s distribution is such that there are a lot of values between 0 and 2, with a decent number of outliers >4. This hints that log transformation may be appropriate here.
-# `rm` appears to have a lot of positive and negative outliers - towns with relatively small/large dwellings
-# `dis` has a few positive outliers - a few towns are pretty far from employment centers
-# `black` has a bunch of negative outliers and the IQR is tiny 
-# positive outliers for `lstat` and `medv`
 ```
+
+\begin{center}\textbf{Figure 1a - Scaled boxplot of Boston variables}\end{center}
+
+\hrulefill
 
 ```{r}
 df$crim.log = log(df$crim) # new variable. log of dep var
-boxplot(scale(df), las=2, main='Boston data set with ln(crim), scaled') # looks better
+boxplot(scale(df), las=2, main='Boston data set with ln(crim), scaled')
 ```
 
+\begin{center}\textbf{Figure 1b - Scaled boxplot including crim.log}\end{center}
+
+\hrulefill
+
 ```{r}
-# comparing distributions using histogram
 par(mfrow=c(1,2))
 hist(df$crim) # positive outliers. positive skew
 hist(df$crim.log) # looks better than before
 ```
 
+\begin{center}\textbf{Figure 2 - Histograms}\end{center}
+
+\hrulefill
 
 ```{r}
 ggcorr(df, label=T)
-# The following variable pairs have >0.65 pairwise correlation in absolute value
-# medv, lstat, -0.74
-# medv, rm, 0.70
-# tax, rad, 0.91
-# tax, nox, 0.67
-# tax, indus, 0.72
-# dis, age, -0.75
-# dis, nox, -0.77
-# dis, indus, -0.71
-# dis, zn, 0.66
-# age, nox, 0.73
-# nox, indus, 0.76
-# crim is also positively correlated with tax at 0.58 and rad at 0.63.
-# the new crim.log variable is correlated with tax, rad, dis, age, nox, indus, and crim at >0.65
-# this sheds more light on the relationship between `crim` and other variables.
-# older places with higher taxes, which are closer to highways, closer to employment centers, are more heavily polluted, and have more non-retail business tend to have higher crime.
 ```
 
+\begin{center}\textbf{Figure 3 - Correlation matrix}\end{center}
+
+\hrulefill
 
 ```{r}
-# running a base linear model with all of the variables, no transformations
 reg = lm(crim ~ . - crim.log, df)
 summary(reg)
 ```
 
+\begin{center}\textbf{Figure 4a - Linear model, crim}\end{center}
+
+\hrulefill
+
 ```{r}
-# Looks really bad.
 plot(reg, which=1)
 ```
 
+\begin{center}\textbf{Figure 4b - Fitted vs. residuals, crim}\end{center}
+
+\hrulefill
+
+
 ```{r}
-# same linear model, but with the log dep var
 reg.log = lm(crim.log ~ . - crim, df)
-sm = summary(reg.log)
-sm
-# adjusted r-squared nearly doubles. log transform is a good choice
+summary(reg.log)
 ```
+
+\begin{center}\textbf{Figure 5a - Linear model, crim.log}\end{center}
+
+\hrulefill
+
 ```{r}
-# still some issues, but a clear improvement
 plot(reg.log, which=1)
 ```
 
-```{r}
-# Calculate MSE
-mean(sm$residuals^2)
-```
+\begin{center}\textbf{Figure 5b - Fitted vs. residuals, crim.log}\end{center}
 
+\hrulefill
 
 ```{r}
-# based off of the VIF, it looks like `nox` and `dis` have potential issues, while `rad` and `tax` should definitely be looked at and possibly removed.
 round(vif(reg.log), 2)
 ```
 
+\begin{center}\textbf{Figure 6 - VIFs for lm using crim.log}\end{center}
+
+\hrulefill
 
 ```{r}
-# Q: Perform best subset selection, the lasso, and ridge regression. Present and discuss results for the approaches that you consider.
+# best subset selection
+
+df$crim = NULL
+
+# train-test split
+set.seed(7)
+train = sample(1:nrow(df), nrow(df)/2)
+test = (-train)
 
 # best subset selection
-bss = regsubsets(df$crim.log ~ . - df$crim, data=df, nbest=1, nvmax=length(names(df)))
+bss = regsubsets(crim.log ~ ., data=df[train,], nvmax=13)
 bss.summary = summary(bss)
-bss.summary
-```
-```{r}
-# plotting RSS, adjR2, Cp, and BIC to compare
 
-par(mfrow=c(2,2))
+test.mat = model.matrix(crim.log ~ ., data=df[test,])
 
-plot(bss.summary$rss, xlab='# of Variables', ylab='RSS', type='l')
-bss.best.rss = which.min(bss.summary$rss)
-points(bss.best.rss, bss.summary$rss[bss.best.rss], col='red', cex=2, pch=20)
+val.errors = rep(NA,13)
+for(i in 1:13){
+  coefi = coef(bss, id=i)
+  pred = test.mat[,names(coefi)] %*% coefi
+  val.errors[i] = mean((df$crim.log[test] - pred)^2)
+}
 
-plot(bss.summary$adjr2, xlab='# of Variables', ylab='Adj. R^2', type='l')
-bss.best.adjr2 = which.max(bss.summary$adjr2)
-points(bss.best.adjr2, bss.summary$adjr2[bss.best.adjr2], col='red', cex=2, pch=20)
-
-plot(bss.summary$cp, xlab='# of Variables', ylab="Mallows' Cp", type='l')
-bss.best.cp = which.min(bss.summary$cp)
-points(bss.best.cp, bss.summary$cp[bss.best.cp], col='red', cex=2, pch=20)
-
-plot(bss.summary$bic, xlab='# of Variables', ylab='BIC', type='l')
-bss.best.bic = which.min(bss.summary$bic)
-points(bss.best.bic, bss.summary$bic[bss.best.bic], col='red', cex=2, pch=20)
-
-# all four statistics choose different models
-# RSS chooses the largest model, which makes sense. RSS decreases monotonically with p.
-# AdjR^2 chooses 12, but the more parsimonious models are nearly as good
-# Cp chooses 9
-# BIC chooses 8. Looks like it penalizes models with more covariates, based on the upward slope of the curve after 8. Even though we know Cp penalizes larger models, BIC does this more strongly.
-
-# TODO: TALK ABOUT DIFFERENCES BETWEEN MODELS 8, 9, 12
+num.vars = which.min(val.errors)
+coef(bss, num.vars)
+paste("The winning model contains", num.vars, "variables")
+paste("The test set MSE for the model chosen by best subset selection is", round(val.errors[num.vars], 3))
 ```
 
-```{r}
-plot(bss, scale='bic')
-```
+\begin{center}\textbf{Figure 7 - Best subset selection}\end{center}
+
+\hrulefill
 
 ```{r}
 # lasso
-df$crim = NULL # getting rid of raw dependent variable
 
+# creating two X matrices - one with squared terms and one without
 x = model.matrix(crim.log ~ ., df)[,-1]
+x.sq = model.matrix(crim.log ~ .^2, df)[,-1]
 y = df$crim.log
 
 # train test split
-set.seed(7)
-train = sample(1:nrow(x), nrow(x)/2)
-test = (-train)
-
 Xtrain = x[train,]
+Xtrain.sq = x.sq[train,]
+
 Xtest = x[test,]
+Xtest.sq = x.sq[test,]
+
 ytrain = y[train]
 ytest = y[test]
 
-# grid to search over for lambda
-lambda = 10^seq(10, -3, length=1000)
+lambda = 10^seq(10, -5, length=5000)
 
 cv.lasso = cv.glmnet(Xtrain, ytrain, alpha=1, lambda=lambda)
 
 lasso.lambda = cv.lasso$lambda.min
-cat("The value of lambda that returns the smallest CV error for lasso is", round(lasso.lambda, 3))
-```
 
-```{r}
-# Now that we have lasso.lambda, we can plug this back in to predict on the test set and calculate MSE
 lasso = glmnet(Xtrain, ytrain, alpha=1, lambda=lambda)
 lasso.yhat = predict(lasso, s=lasso.lambda, newx=Xtest)
-lasso.cv.mse = mean((lasso.yhat - ytest)^2)
-cat("The test set MSE for lasso is", lasso.cv.mse)
+lasso.test.mse = mean((lasso.yhat - ytest)^2)
+
+out.lasso = glmnet(x, y, alpha=1)
+
+# Refit on whole data set
+print(predict(out.lasso, type='coefficients', s=lasso.lambda))
+paste("The value of lambda that yields the smallest CV error for lasso is", round(lasso.lambda, 3))
+paste("The test set MSE for lasso is", round(lasso.test.mse, 3))
 ```
+
+\begin{center}\textbf{Figure 8a - Lasso}\end{center}
+
+\hrulefill
 
 ```{r}
-# Now for the coefficients associated with lasso
-out = glmnet(x, y, alpha=1)
+# lasso with interactions
+cv.lasso.sq = cv.glmnet(Xtrain.sq, ytrain, alpha=1, lambda=lambda)
 
-# Not sure which of these two to use.
-predict(out, type='coefficients', s=lasso.lambda) # refit on whole data set
-predict(lasso, type='coefficients', s=lasso.lambda) # refit just on training
+lasso.lambda.sq = cv.lasso.sq$lambda.min
 
-# TODO: more interpretation of results
+lasso.sq = glmnet(Xtrain.sq, ytrain, alpha=1, lambda=lambda)
+lasso.yhat.sq = predict(lasso.sq, s=lasso.lambda.sq, newx=Xtest.sq)
+lasso.test.mse.sq = mean((lasso.yhat.sq - ytest)^2)
+
+out.lasso.sq = glmnet(x.sq, y, alpha=1)
+
+# Refit on whole data set
+print(predict(out.lasso.sq, type='coefficients', s=lasso.lambda.sq)[1:92,]) 
+paste("The value of lambda that yields the smallest CV error for lasso.sq is", round(lasso.lambda.sq, 3))
+paste("The test set MSE for lasso.sq is", round(lasso.test.mse.sq, 3))
 ```
+
+\begin{center}\textbf{Figure 8b - Lasso with interactions}\end{center}
+
+\hrulefill
 
 ```{r}
 # ridge
-
 cv.ridge = cv.glmnet(Xtrain, ytrain, alpha=0, lambda=lambda)
 
 ridge.lambda = cv.ridge$lambda.min
 
-cat("The value of lambda that returns the smallest CV error for ridge is", round(ridge.lambda, 3))
-```
-
-```{r}
-# Now that we have ridge.lambda, we can plug this back in to predict on the test set and calculate MSE
 ridge = glmnet(Xtrain, ytrain, alpha=0, lambda=lambda)
 ridge.yhat = predict(ridge, s=ridge.lambda, newx=Xtest)
-ridge.cv.mse = mean((ridge.yhat - ytest)^2)
-cat("The test set MSE for ridge is", ridge.cv.mse)
+ridge.test.mse = mean((ridge.yhat - ytest)^2)
+
+out.ridge = glmnet(x, y, alpha=0)
+
+# Refit on whole data set
+print(predict(out.ridge, type='coefficients', s=ridge.lambda))
+paste("The value of lambda that returns the smallest CV error for ridge is", round(ridge.lambda, 3))
+paste("The test set MSE for ridge is", round(ridge.test.mse, 3))
 ```
+
+\begin{center}\textbf{Figure 9a - Ridge}\end{center}
+
+\hrulefill
 
 ```{r}
-# Now for the coefficients associated with ridge
-out = glmnet(x, y, alpha=0)
+# ridge with interactions
+cv.ridge.sq = cv.glmnet(Xtrain.sq, ytrain, alpha=0, lambda=lambda)
 
-# Not sure which of these two to use.
-predict(out, type='coefficients', s=ridge.lambda) # refit on whole data set
-predict(ridge, type='coefficients', s=ridge.lambda) # refit just on training
+ridge.lambda.sq = cv.ridge.sq$lambda.min
 
-# TODO: more interpretation of results
+ridge.sq = glmnet(Xtrain.sq, ytrain, alpha=0, lambda=lambda)
+ridge.yhat.sq = predict(ridge.sq, s=ridge.lambda.sq, newx=Xtest.sq)
+ridge.test.mse.sq = mean((ridge.yhat.sq - ytest)^2)
+
+out.ridge.sq = glmnet(x.sq, y, alpha=0)
+
+# Refit on whole data set
+print(predict(out.ridge.sq, type='coefficients', s=ridge.lambda.sq)[1:92,]) 
+paste("The value of lambda that returns the smallest CV error for ridge.sq is", round(ridge.lambda.sq, 3))
+paste("The test set MSE for ridge.sq is", round(ridge.test.mse.sq, 3))
 ```
 
+\begin{center}\textbf{Figure 9b - Ridge with interactions}\end{center}
+
+\hrulefill
 
 ```{r}
-# Scratch work, ideas, etc.
+# ridge.final
 
+# creating a final x matrix, leaving out `rad` and `tax`
+df.final = data.frame(df)
+df.final$rad = NULL
+df.final$tax = NULL
 
+x.final = model.matrix(crim.log ~ .^2, df.final)[,-1]
+
+Xtrain.final = x.final[train,]
+Xtest.final = x.final[test,]
+
+cv.ridge.final = cv.glmnet(Xtrain.final, ytrain, alpha=1, lambda=lambda)
+
+ridge.lambda.final = cv.ridge.final$lambda.min
+
+ridge.final = glmnet(Xtrain.final, ytrain, alpha=0, lambda=lambda)
+ridge.yhat.final = predict(ridge.final, s=ridge.lambda.final, newx=Xtest.final)
+ridge.test.mse.final = mean((ridge.yhat.final - ytest)^2)
+
+out.ridge.final = glmnet(x.final, y, alpha=0)
+
+# Refit on whole data set
+print(predict(out.ridge.final, type='coefficients', s=ridge.lambda.final)[1:66,])
+paste("The value of lambda that yields the smallest CV error for ridge.final is", round(ridge.lambda.final, 3))
+paste("The test set MSE for ridge.final is", round(ridge.test.mse.final, 3))
 ```
 
+\begin{center}\textbf{Figure 9c - Ridge final}\end{center}
+
+\hrulefill
 
 # 4. Conclusions
 
+In this assignment, I first inspected the Boston data set, taking the natural log of the response variable in order to deal with its positive skew and outliers. After some exploratory analysis, I performed best subset selection, finding that 10 variables were chosen. Then, I used lasso to fit a new model, finding that the model chosen was slightly more sparse with 8 variables but that the fit didn't improve. Introducing interaction terms helped the lasso fit slightly, but switching over to ridge and using interaction terms resulted in the best fit. This led me to conclude that all of the variables are probably similarly important and none should be omitted, and that interaction terms help account for more complex contributions to predicting `crim.log`. 
+
+I tried to improve the fit further based on high VIFs, but it didn't work out, and I ended up settling on the ridge model with interaction terms. My final ridge model uses 91 variables, all of which end up in the final equation. 
+
 # 5. Appendix
 
-```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```{r ref.label=knitr::all_labels(), echo=T, eval=F}
 ```
