@@ -1,0 +1,226 @@
+---
+title: "STAT 508 Data Analysis Assignment 5"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>')
+
+library(MASS)
+library(pls)
+```
+
+# 0. Introduction 
+
+This week, we're returning to the Boston data set for a third time, this time using principal components regression and partial least squares. In this assignment, I compare the predictive performance of these two regression techniques to the results obtained previously using best subset selection, lasso, and ridge. 
+
+I compare four different models, varying the response variable and the regression method. I find that log-transforming the dependent variable leads to a better fit. PLS on `crim.log` ends up being the best fit, even beating out ridge regression from last week.
+
+# 1. Data
+
+Our data is a cross-sectional data set with 506 observations and 14 variables, each row representing a town in the Boston suburbs. In this analysis, we're interested in predicting `crim`, the per capita crime rate by town. 
+
+**Table 0** shows the steps taken to prepare the data. I create two distinct sets of variables, one including the raw variable `crim` and one including the log-transformed variable `crim.log` from last week. I then split each of the data sets into two equally sized training and test sets.
+
+# 2. Analyses
+
+**Table 1** contains the results from using principal components regression to predict `crim`. I first fit the model to the training data using 10-fold cross-validation, then I pull out `ncomp` = 9, the number of components associated with the fit with the lowest CV MSE. I predict on the test set, finding a test MSE of 53.94 and test R^2 of 0.358. I calculate test R^2 in order to directly compare the models with different dependent variables.  MSE uses the same units as the response variable, so using it to compare the log and level fits would be an apples-to-oranges comparison. Finally, I fit the model to the full data set, then calculate R^2. The R^2 for the full PCR fit on `crim` is 0.425. A summary of the results from all four models can be found in **table 5**.
+
+I perform PCR on the data set containing `crim.log` in **table 2**, following the same procedures detailed above. This time, 13 components are chosen, so M = p which is equivalent to least squares. Both the test and full R^2 are higher for this run at 0.872 and 0.868. The log transformation seems to be helpful for prediction, but PCR doesn't provide any benefit over OLS. 
+
+The results from PLS on `crim` are in **table 3**. Test and full R^2 are slightly higher (and MSE is slightly lower) than PCR on the same data, and 10 components are chosen instead of 9, so the fit and results are similar. 
+
+Lastly, the results from PLS on `crim.log` can be found in **table 4**. Compared to PCR on the same data, the test R^2 is identical and the full R^2 is slightly better, but the most noticeable difference is that 9 components are chosen instead of 13. PCR resulted in OLS with M = p, but here, M < p signifies some amount of dimensionality reduction. This fit is the best of the four, and with a test MSE of 0.643, it's better than the ridge fit from last week, which had a test MSE of 0.649. (I included interaction terms last week, but I didn't have time this week).
+
+# 3. Plots and Tables
+
+```{r}
+# data treatment and model matrix generation
+df = Boston
+
+# log response variable
+df$crim.log = log(df$crim) 
+
+df.lvl = data.frame(df)
+df.log = data.frame(df)
+
+# drop unused variable
+df.lvl$crim.log = NULL
+df.log$crim = NULL
+
+x.lvl = model.matrix(crim ~ ., df.lvl)[,-1]
+y.lvl = df.lvl$crim
+
+x.log = model.matrix(crim.log ~ ., df.log)[,-1]
+y.log = df.log$crim.log
+
+# train test split
+set.seed(7)
+train = sample(1:nrow(df), nrow(df)/2)
+test = (-train)
+
+Xtrain.lvl = x.lvl[train,]
+Xtest.lvl = x.lvl[test,]
+ytrain.lvl = y.lvl[train]
+ytest.lvl = y.lvl[test]
+
+Xtrain.log = x.log[train,]
+Xtest.log = x.log[test,]
+ytrain.log = y.log[train]
+ytest.log = y.log[test]
+```
+
+\begin{center}\textbf{Table 0 - Data preparation}\end{center}
+
+\hrulefill
+
+```{r}
+# principal components regression - x.lvl
+
+pcr.fit.lvl = pcr(crim ~ ., data=df.lvl, subset=train, scale=T, validation='CV')
+
+# pull out ncomp. MSEP() returns training CV error for each ncomp
+cverr = MSEP(pcr.fit.lvl)$val[1,,]
+# subtract 1 to account for the intercept
+ncomp = (which.min(cverr) - 1)[[1]]
+
+yhat.lvl = predict(pcr.fit.lvl, Xtest.lvl, ncomp=ncomp)
+pcr.lvl.mse = mean((yhat.lvl - ytest.lvl)^2)
+
+# define a function to calculate R^2 as the square of Pearson's r
+rsq = function (x, y) cor(x, y) ^ 2
+pcr.lvl.R2 = rsq(yhat.lvl, ytest.lvl)
+
+# refit on full data set, calculate R2 for apples-to-apples comparison
+pcr.fit.lvl.full = pcr(y.lvl~x.lvl, scale=T, ncomp=ncomp)
+R2.full = R2(pcr.fit.lvl.full)$val[1,1,ncomp]
+summary(pcr.fit.lvl.full)
+
+cat('R-squared for pcr.fit.lvl.full:', round(R2.full, 3))
+
+cat('Optimal number of principal components: ', ncomp)
+
+cat('Test MSE for pcr.lvl: ', round(pcr.lvl.mse, 2))
+
+cat('Test R-squared for pcr.lvl: ', round(pcr.lvl.R2, 3))
+```
+
+\begin{center}\textbf{Table 1 - PCR on x.lvl}\end{center}
+
+\hrulefill
+
+```{r}
+# principal components regression - x.log
+
+pcr.fit.log = pcr(crim.log ~ ., data=df.log, subset=train, scale=T, validation='CV')
+
+# pull out ncomp
+cverr = MSEP(pcr.fit.log)$val[1,,]
+ncomp = (which.min(cverr) - 1)[[1]]
+
+yhat.log = predict(pcr.fit.log, Xtest.log, ncomp=ncomp)
+pcr.log.mse = mean((yhat.log - ytest.log)^2)
+pcr.log.R2 = rsq(yhat.log, ytest.log)
+
+# refit on full data set
+pcr.fit.log.full = pcr(y.log~x.log, scale=T, ncomp=ncomp)
+R2.full = R2(pcr.fit.log.full)$val[1,1,ncomp]
+summary(pcr.fit.log.full)
+
+cat('R-squared for pcr.fit.log.full:', round(R2.full, 3))
+
+cat('Optimal number of principal components: ', ncomp)
+
+cat('Test MSE for pcr.log: ', round(pcr.log.mse, 3))
+
+cat('Test R-squared for pcr.log: ', round(pcr.log.R2, 3))
+```
+
+\begin{center}\textbf{Table 2 - PCR on x.log}\end{center}
+
+\hrulefill
+
+```{r}
+# partial least squares - x.lvl
+
+pls.fit.lvl = plsr(crim ~ ., data=df.lvl, subset=train, scale=T, validation='CV')
+
+# pull out ncomp
+cverr = MSEP(pls.fit.lvl)$val[1,,]
+ncomp = (which.min(cverr) - 1)[[1]]
+
+yhat.lvl = predict(pls.fit.lvl, Xtest.lvl, ncomp=ncomp)
+pls.lvl.mse = mean((yhat.lvl - ytest.lvl)^2)
+pls.lvl.R2 = rsq(yhat.lvl, ytest.lvl)
+
+# refit on full data set
+pls.fit.lvl.full = plsr(y.lvl~x.lvl, scale=T, ncomp=ncomp)
+R2.full = R2(pls.fit.lvl.full)$val[1,1,ncomp]
+summary(pls.fit.lvl.full)
+
+cat('R-squared for pls.fit.lvl.full:', round(R2.full, 3))
+
+cat('Optimal number of components: ', ncomp)
+
+cat('Test MSE for pls.lvl: ', round(pls.lvl.mse, 2))
+
+cat('Test R-squared for pls.lvl: ', round(pls.lvl.R2, 3))
+```
+
+\begin{center}\textbf{Table 3 - PLS on x.lvl}\end{center}
+
+\hrulefill
+
+```{r}
+# partial least squares - x.log
+
+pls.fit.log = plsr(crim.log ~ ., data=df.log, subset=train, scale=T, validation='CV')
+
+# pull out ncomp
+cverr = MSEP(pls.fit.log)$val[1,,]
+ncomp = (which.min(cverr) - 1)[[1]]
+
+yhat.log = predict(pls.fit.log, Xtest.log, ncomp=ncomp)
+pls.log.mse = mean((yhat.log - ytest.log)^2)
+pls.log.R2 = rsq(yhat.log, ytest.log)
+
+# refit on full data set
+pls.fit.log.full = plsr(y.log~x.log, scale=T, ncomp=ncomp)
+R2.full = R2(pls.fit.log.full)$val[1,1,ncomp]
+summary(pls.fit.log.full)
+
+cat('R-squared for pls.fit.log.full:', round(R2.full, 3))
+
+cat('Optimal number of components: ', ncomp)
+
+# winner. ridge test MSE on the same data from last week was .649
+cat('Test MSE for pls.log: ', round(pls.log.mse, 3)) 
+
+cat('Test R-squared for pls.log: ', round(pls.log.R2, 3))
+```
+
+\begin{center}\textbf{Table 4 - PLS on x.log}\end{center}
+
+\hrulefill
+
+|              | pcr.lvl | pcr.log | pls.lvl | pls.log |
+|--------------|---------|---------|---------|---------|
+| # components | 9       | 13      | 10      | 9       |
+| Test MSE     | 53.94   | 0.644   | 51.48   | 0.643   |
+| Test R^2     | 0.358   | 0.872   | 0.389   | 0.872   |
+| Full R^2     | 0.425   | 0.868   | 0.454   | 0.875   |
+
+\begin{center}\textbf{Table 5 - Summary}\end{center}
+
+\hrulefill
+
+# 4. Conclusions
+
+In this week's assignment, I found the best results after performing PLS using the log-transformed response variable. The PCR and PLS fits both improved significantly after using `crim.log`, with PCR being equivalent to OLS and PLS offering a little bit of dimensionality reduction. I didn't have time to include interaction terms, but both PCR and PLS performed better than ridge from last week on the 13-variable data set. However, if we're interested in inference and interpretability at all, the coefficients that ridge returns are much more useful than the components returned by PCR and PLS.
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```

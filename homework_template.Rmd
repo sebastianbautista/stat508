@@ -2,12 +2,6 @@
 title: "STAT 508 Data Analysis Assignment ###"
 author: "Sebastian Bautista"
 output:
-  html_document:
-    code_folding: hide
-    df_print: paged
-  html_notebook:
-    code_folding: hide
-    fig_caption: yes
   pdf_document: default
 ---
 
