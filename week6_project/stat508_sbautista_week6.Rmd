@@ -4,10 +4,9 @@ author: "Sebastian Bautista"
 output:
   pdf_document: default
 ---
-
+  
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(comment='>')
-
 library(ISLR)
 library(GGally)
 library(car)
@@ -47,21 +46,19 @@ For this project, we're looking at the College data set, aiming to predict the n
 
 ```{r}
 # exploratory data analysis
-df = College
-
+df0 = College
 # changing variable names to lower case
-names(df) = tolower(names(df))
-str(df)
-
+names(df0) = tolower(names(df0))
+str(df0)
 # checking for missings
-cat(sum(is.na(df)), 'missing values')
+cat(sum(is.na(df0)), 'missing values')
 ```
 \begin{center}\textbf{Figure X}\end{center}
 \hrulefill
 
 ```{r}
 # look at first few obs
-head(df)
+head(df0)
 ```
 \begin{center}\textbf{Figure X}\end{center}
 \hrulefill
@@ -69,24 +66,25 @@ head(df)
 ```{r}
 # p.undergrad, f.undergrad, enroll, accept, apps are positive skewed (mean>med)
 # our sample is 72.7% private schools and 27.3% public
-summary(df)
+summary(df0)
 ```
 \begin{center}\textbf{Figure X}\end{center}
 \hrulefill
 
 ```{r}
-# trying a simple linear model
-reg = lm(apps ~ ., data=df)
-summary(reg)
+# FIRST SIMPLE LINEAR MODEL
+reg0 = lm(apps ~ ., data=df0)
+summary(reg0)
 # heteroskedasticity and non-normality in residuals but the fit is good overall
-plot(reg, which=1)
-cat('MSE:',mean(summary(reg)$residuals^2))
+# Rutgers at New Brunswick – positive residuals indicate that we underestimate `apps`. In other words, they receive more `apps` than they should be according to the data. 
+plot(reg0, which=1)
+cat('MSE:',mean(summary(reg0)$residuals^2))
 ```
 \begin{center}\textbf{Figure X}\end{center}
 \hrulefill
 
 ```{r}
-numdf = model.matrix(~., data=df)[,-1]
+numdf = model.matrix(~., data=df0)[,-1]
 # positive outliers and skew for apps, accept, p.undergrad, books, and expend
 boxplot(scale(numdf), las=2, main='College data set, scaled')
 ```
@@ -98,6 +96,7 @@ boxplot(scale(numdf), las=2, main='College data set, scaled')
 # probably leaning towards feature selection because of this
 # apps, our response, is highly correlated with accept, enroll, and f.undergrad
 # apps, accept, enroll, and f.undergrad
+# also talk about how private schools differ from public. higher tuition, fewer students
 ggcorr(numdf, label=T)
 ```
 \begin{center}\textbf{Figure X}\end{center}
@@ -106,139 +105,177 @@ ggcorr(numdf, label=T)
 ```{r}
 # enroll and f.undergrad show high signs of multicollinearity
 # accept, top10perc, and top25perc are also somewhat high
-sort(vif(reg), decreasing=T)
+sort(vif(reg0), decreasing=T)
 ```
 \begin{center}\textbf{Figure X}\end{center}
 \hrulefill
 
 ```{r}
 # possible obs to drop
-outlierTest(reg)
+# again, Rutgers at New Brunswick is pointed out
+outlierTest(reg0)
 ```
 \begin{center}\textbf{Figure X}\end{center}
 \hrulefill
 
+```{r}
+# SECOND SIMPLE LINEAR MODEL
+# dropping enroll, f.undergrad, and Rutgers at New Brunswick
+df1 = data.frame(df0)
+df1$enroll = NULL
+df1$f.undergrad = NULL
+remove.rows = c('Rutgers at New Brunswick')
+df1 = df1[!(row.names(df1) %in% remove.rows), ]
+reg1 = lm(apps ~ ., data=df1)
+summary(reg1)
+# again, weird residuals, but not as bad as before
+plot(reg1, which=1)
+cat('MSE:',mean(summary(reg1)$residuals^2))
+# MSE is lower at 939537
+```
+
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# THIRD SIMPLE LINEAR MODEL
+# log transforming the response variable
+reg2 = lm(log(apps) ~ . - apps, data=df1)
+summary(reg2)
+# fit looks kinda bad and adj R^2 drops
+plot(reg2, which=1)
+cat('MSE:',mean(summary(reg2)$residuals^2))
+```
+
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# FOURTH SIMPLE LINEAR MODEL
+# log transforming skewed predictors
+# positive outliers and skew for apps, accept, p.undergrad, books, and expend
+reg3 = lm(log(apps) ~ private + log(accept) + top10perc + top25perc + log(p.undergrad)
+          + outstate + room.board + log(books) + personal + phd + terminal
+          + s.f.ratio + perc.alumni + log(expend) + grad.rate, data=df1)
+summary(reg3)
+# fit looks much better 
+plot(reg3, which=1)
+cat('MSE:',mean(summary(reg3)$residuals^2))
+```
+
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# creating final dataset for the rest of the analyses
+df1$apps.log = log(df1$apps)
+df1$accept.log = log(df1$accept)
+df1$p.undergrad.log = log(df1$p.undergrad)
+df1$books.log = log(df1$books)
+df1$expend.log = log(df1$expend)
+df1$apps = NULL
+df1$accept = NULL
+df1$p.undergrad = NULL
+df1$books = NULL
+df1$expend = NULL
+```
+
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
 
 ```{r}
 # BEST SUBSET SELECTION
 
-# drop enroll and f.undergrad because of VIF
-df$enroll = NULL
-df$f.undergrad = NULL
+df = data.frame(df1)
 
 # train-test split
 set.seed(90210)
 train = sample(1:nrow(df), nrow(df)/2)
 test = (-train)
-
 # number of predictors p
 nvmax = length(names(df)) - 1
-
-bss = regsubsets(apps ~ ., data=df[train,], nvmax=nvmax)
-
-test.mat = model.matrix(apps ~ ., data=df[test,])
-
+bss = regsubsets(apps.log ~ ., data=df[train,], nvmax=nvmax)
+test.mat = model.matrix(apps.log ~ ., data=df[test,])
 val.errors = rep(NA,nvmax)
 for(i in 1:nvmax){
-  coefi = coef(bss, id=i)
-  pred = test.mat[,names(coefi)] %*% coefi
-  val.errors[i] = mean((df$apps[test] - pred)^2)
+coefi = coef(bss, id=i)
+pred = test.mat[,names(coefi)] %*% coefi
+val.errors[i] = mean((df$apps.log[test] - pred)^2)
 }
-
 num.vars = which.min(val.errors)
 coef(bss, num.vars)
 paste("The winning model contains", num.vars, "variables")
-paste("The test set MSE for the model chosen by best subset selection is", round(val.errors[num.vars]))
+paste("The test set MSE for the model chosen by best subset selection is", round(val.errors[num.vars], 4))
+# still the best. BSS is generally better in high signal-to-noise ratio regimes, so we can conclude
+# that a lot of these variables are provide useful information when it comes to predicting `apps.log`
 ```
 \begin{center}\textbf{Figure X - Best subset selection}\end{center}
 \hrulefill
 
 ```{r}
 # RIDGE
-
-X = model.matrix(apps ~ ., df)[,-1]
-y = df$apps
-
+X = model.matrix(apps.log ~ ., df)[,-1]
+y = df$apps.log
 Xtrain = X[train,]
 Xtest = X[test,]
 ytrain = y[train]
 ytest = y[test]
-
 lambda = 10^seq(10, -4, length=5000)
-
 cv.ridge = cv.glmnet(Xtrain, ytrain, alpha=0, lambda=lambda)
-
 ridge.lambda = cv.ridge$lambda.min
-
 ridge = glmnet(Xtrain, ytrain, alpha=0, lambda=lambda)
 ridge.yhat = predict(ridge, s=ridge.lambda, newx=Xtest)
 ridge.test.mse = mean((ridge.yhat - ytest)^2)
-
 ridge.full = glmnet(X, y, alpha=0)
-
 # Refit on whole data set
 print(predict(ridge.full, type='coefficients', s=ridge.lambda))
 paste("The value of lambda that returns the smallest CV error for ridge is", round(ridge.lambda, 3))
-paste("The test set MSE for ridge is", round(ridge.test.mse))
+paste("The test set MSE for ridge is", round(ridge.test.mse, 4))
 ```
 \begin{center}\textbf{Figure X - Ridge}\end{center}
 \hrulefill
 
 ```{r}
 # LASSO
-
 cv.lasso = cv.glmnet(Xtrain, ytrain, alpha=1, lambda=lambda)
-
 lasso.lambda = cv.lasso$lambda.min
-
 lasso = glmnet(Xtrain, ytrain, alpha=1, lambda=lambda)
 lasso.yhat = predict(lasso, s=lasso.lambda, newx=Xtest)
 lasso.test.mse = mean((lasso.yhat - ytest)^2)
-
 lasso.full = glmnet(X, y, alpha=1)
-
 # Refit on whole data set
 print(predict(lasso.full, type='coefficients', s=lasso.lambda))
 paste("The value of lambda that yields the smallest CV error for lasso is", round(lasso.lambda, 3))
-paste("The test set MSE for lasso is", round(lasso.test.mse))
+paste("The test set MSE for lasso is", round(lasso.test.mse, 4))
 ```
 \begin{center}\textbf{Figure X - Lasso}\end{center}
 \hrulefill
 
 ```{r}
 # PCR
-
-cv.pcr = pcr(apps ~ ., data=df, subset=train, scale=T, validation='CV')
-
+cv.pcr = pcr(apps.log ~ ., data=df, subset=train, scale=T, validation='CV')
 cverr = MSEP(cv.pcr)$val[1,,]
 ncomp = (which.min(cverr) - 1)[[1]]
-
 pcr.yhat = predict(cv.pcr, Xtest, ncomp=ncomp)
 pcr.mse = mean((pcr.yhat - ytest)^2)
-
 pcr.full = pcr(y~X, scale=T, ncomp=ncomp)
-
 cat('Optimal number of principal components: ', ncomp)
-cat('Test MSE for pcr: ', round(pcr.mse))
+cat('Test MSE for pcr: ', round(pcr.mse, 4))
+# 16 principal components = OLS
 ```
 \begin{center}\textbf{Figure X - Principal Components Regression}\end{center}
 \hrulefill
 
 ```{r}
 # PLSR
-
-cv.pls = plsr(apps ~ ., data=df, subset=train, scale=T, validation='CV')
-
+cv.pls = plsr(apps.log ~ ., data=df, subset=train, scale=T, validation='CV')
 cverr = MSEP(cv.pls)$val[1,,]
 ncomp = (which.min(cverr) - 1)[[1]]
-
 pls.yhat = predict(cv.pls, Xtest, ncomp=ncomp)
 pls.mse = mean((pls.yhat - ytest)^2)
-
 pls.full = plsr(y~X, scale=T, ncomp=ncomp)
-
-cat('Optimal number of principal components: ', ncomp)
-cat('Test MSE for pls: ', round(pls.mse))
+cat('Optimal number of components: ', ncomp)
+cat('Test MSE for pls: ', round(pls.mse, 4))
 ```
 \begin{center}\textbf{Figure X - Partial Least Squares Regression}\end{center}
 \hrulefill
