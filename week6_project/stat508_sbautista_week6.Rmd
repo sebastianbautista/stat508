@@ -7,6 +7,7 @@ output:
   
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(comment='>')
+
 library(ISLR)
 library(GGally)
 library(car)
@@ -17,153 +18,141 @@ library(pls)
 
 # 0. Introduction
 
-For this project, we're looking at the College data set, aiming to predict the number of applications received by a college. 
+For this project, we're looking at the `College` data set, aiming to predict the number of applications received by a college. First, in the data section, I perform exploratory data analysis, looking at the distributions of variables and fitting simple linear models to see if transformations, omitting observations, or dropping variables help improve a linear fit. Then, I split the data into training and testing sets, using best subsets selection, ridge, lasso, PCR, and PLSR to attempt to predict the response variable, making sure to report and compare results. 
 
 # 1. Data
 
-`College` is a cross-sectional data set where each observation is a US college from the 1995 issue of US News and World Report. Our response variable is `apps` and there are 17 other variables in the data. 
+`College` is a cross-sectional data set where each observation is a US college from the 1995 issue of US News and World Report. The structure of the data set is shown in **figure 1.1**. Our response variable is `apps` and there are 17 other variables in the data, with 777 observations. There are no missing values. **Figure 1.2** contains summary statistics for the data set. The variables `p.undergrad`, `f.undergrad`, `enroll`, `accept`, and `apps` seem to have positive outliers, as indicated by their high means relative to medians. 72.7% of the colleges in our sample are private and 27.3% are public. 
+
+**Figure 1.3** shows boxplots for the scaled data set. The chart confirms that the variables mentioned earlier, as well as `books`, `personal`, and `expend`, have positive outliers and skew. I address these positive-skewed variables later on when I fit linear models. A correlation matrix can be found in **figure 1.4**. Our response, `apps`, is highly correlated with `accept`, `enroll`, and `f.undergrad`, which makes sense, since all full time undergrads at any given college applied to that college, were accepted, and enrolled. Unsurprisingly, `top10perc` and `top25perc` are highly correlated, since every student in the top 10% is also in the top 25%. Interestingly, looking at  `privateYes` reveals that private schools have much higher out of state tuition and lower applications, acceptances, and undergrad students in general. 
+
+In order to check whether linear regression modeling is appropriate, I fit a few models and run diagnostic tests. **Figure 2.1** contains the results from an initial model including all of the variables with no transformations, as well as a plot of the fitted values versus the residuals. The adjusted R-squared is quite high at 0.93, but the residuals show signs of heteroskedasticity and non-normality, as well as a large residual for Rutgers at New Brunswick, indicating that this model underestimates `apps` for that college. 
+
+Next, I check for multicollinearity using the `vif()` function from the `car` library, shown in **figure 2.2**. `enroll` and `f.undergrad` have VIFs in the double digits, confirming the relationships shown earlier in the correlation matrix. Judging from this test, those two variables should probably be dropped. Also, since `top10perc` and `top25perc` are highly collinear because of their construction, I choose to drop the former because of its higher VIF. In **figure 2.3**, I test for outliers, finding that Rutgers at New Brunswick has a high studentized residual. As a result of these tests, I fit a second linear model after dropping the variables `enroll`, `f.undergrad`, and `top10perc` and the observation associated with Rutgers.
+
+This second linear model is summarized in **figure 2.4**. The fit improves a litle bit, but the residuals still show signs of heteroskedasticity and non-normality. For my third try in **figure 2.5**, I take the natural log of the response variable `apps`, finding that this doesn't improve the residuals, and actually lowers the adjusted R-squared from about 0.91 to 0.77.
+
+Finally, for my fourth linear model, I log-transform all of the positive skewed predictors mentioned earlier: `apps`, `accept`, `p.undergrad`, `books`, `personal`, and `expend`. **Figure 2.6** shows the highest adjusted R-squared so far at 0.96, and more importantly, the residuals look approximately normal with mean 0 and constant variance. Boxplots of the final data set after making necessary omissions and transformations can be found in **figure 2.7**. I end up using these log-transformed variables in the main analyses.
 
 # 2. Analyses
 
-1. *Examine the data using exploratory data analysis tools. Are there any features that would appear to jeopardize linear regression modeling? If so, address these issues before going any further.*
+I split the data into two equal training and test sets and perform best subsets selection in **figure 3.1**. The best-fitting model contains 13 of the 14 variables, omitting `phd`, and the test MSE is 0.0456. The coefficient estimates can be found in the figure. 
 
-2. *Split the data into a training and a test set.*
+**Figure 3.2** shows the results of training a ridge regression model, predicting on the test set, and then refitting on the whole data set. The value of lambda associated with the smallest CV error is 0.001, which suggests that very little regularization is needed when predicting `apps.log`. This is backed up by the fact that the test MSE for this run is 0.0455, a hair better than best subsets selection. 
 
-3. *Using best subset selection, fit a least-squares regression model on the training set, and report the test error obtained.*
+I fit a lasso model in the same fashion in **figure 3.3**. This time, lambda is found to be 0.006, which is still quite low but implies some regularization, as 4 variables - `outstate`, `phd`, `perc.alumni`, and `p.undergrad.log` are set to 0 as a result of L1 regularization, yielding a 10-variable model. However, the test MSE for lasso is the highest so far, at 0.0461. In conjunction with the results from BSS and ridge, this suggests that most, if not all, of the 14 variables involved in predicting `apps.log` provide useful information for prediction. Lasso tends to do well when picking out a small signal among a relatively large amount of noise, but there doesn't seem to be very much noise here. BSS and ridge use 13 and 14 variables respectively and both have lower test MSE than lasso.
 
-4. *Fit a ridge regression model on the training set, with lambda chosen by cross-validation. Report the test error obtained.*
+I fit a principal components regression model in **figure 3.4**. The validation plot shows that MSEP seems to decrease monotonically with increasing M, so the optimal number of components is 14, which is equivalent to an OLS fit. The test MSE is 0.0456, which is identical to BSS. Again, this supports the idea that most of the variables are useful for predicting `apps.log`. 
 
-5. *Repeat #4 with a lasso model instead of ridge regression, and report the test error obtained as well as the number of nonzero coefficient estimates.*
+**Figure 3.5** shows the results after fitting partial least squares. In this case, M is hard to visually confirm from the validation plot, but I was able to programmatically determine that the optimal number of components is 10, with a test MSE of 0.0456, the same as PCR and BSS. 
 
-6. *Fit a PCR model on the training set, with M chosen by cross-validation. Report the test error as well as the value of M selected.*
-
-7. *Repeat #6 with a PLS model instead of PCR.*
-
-*Comment on the results obtained. What is the prediction accuracy? How do the different methods agree/disagree? Summarize your findings in a report, following the usual guidelines. Please pay special attention to your presentation, writing, and cohesiveness of analysis.* 
-
+A summary table containing the five models, their test MSE, number of variables/components, and lambda (if applicable) can be found in **figure 4**. 
 
 # 3. Plots and Tables
 
 ```{r}
-# exploratory data analysis
+# load data and change variable names
 df0 = College
-# changing variable names to lower case
 names(df0) = tolower(names(df0))
+
+# structure of data
 str(df0)
+
 # checking for missings
 cat(sum(is.na(df0)), 'missing values')
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 1.1 - Structure of the College data set}\end{center}
 \hrulefill
 
 ```{r}
-# look at first few obs
-head(df0)
-```
-\begin{center}\textbf{Figure X}\end{center}
-\hrulefill
-
-```{r}
-# p.undergrad, f.undergrad, enroll, accept, apps are positive skewed (mean>med)
-# our sample is 72.7% private schools and 27.3% public
 summary(df0)
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 1.2 - Summary statistics}\end{center}
+\hrulefill
+
+
+```{r}
+numdf0 = model.matrix(~., data=df0)[,-1]
+boxplot(scale(numdf0), las=2, main='College data set, scaled')
+```
+\begin{center}\textbf{Figure 1.3 - Scaled boxplots, raw data}\end{center}
 \hrulefill
 
 ```{r}
-# FIRST SIMPLE LINEAR MODEL
+ggcorr(numdf0, label=T)
+```
+\begin{center}\textbf{Figure 1.4 - Correlation matrix}\end{center}
+\hrulefill
+
+```{r}
+# FIRST LINEAR MODEL
 reg0 = lm(apps ~ ., data=df0)
 summary(reg0)
-# heteroskedasticity and non-normality in residuals but the fit is good overall
-# Rutgers at New Brunswick – positive residuals indicate that we underestimate `apps`. In other words, they receive more `apps` than they should be according to the data. 
-plot(reg0, which=1)
-cat('MSE:',mean(summary(reg0)$residuals^2))
+
+plot(reg0, which=1, caption='First linear model, residuals vs. fitted')
+cat('MSE:', mean(summary(reg0)$residuals^2))
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.1 - First linear model}\end{center}
 \hrulefill
 
 ```{r}
-numdf = model.matrix(~., data=df0)[,-1]
-# positive outliers and skew for apps, accept, p.undergrad, books, and expend
-boxplot(scale(numdf), las=2, main='College data set, scaled')
-```
-\begin{center}\textbf{Figure X}\end{center}
-\hrulefill
-
-```{r}
-# a lot of these pairs make sense that they would be highly collinear
-# probably leaning towards feature selection because of this
-# apps, our response, is highly correlated with accept, enroll, and f.undergrad
-# apps, accept, enroll, and f.undergrad
-# also talk about how private schools differ from public. higher tuition, fewer students
-ggcorr(numdf, label=T)
-```
-\begin{center}\textbf{Figure X}\end{center}
-\hrulefill
-
-```{r}
-# enroll and f.undergrad show high signs of multicollinearity
-# accept, top10perc, and top25perc are also somewhat high
 sort(vif(reg0), decreasing=T)
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.2 - VIFs, first linear model}\end{center}
 \hrulefill
 
 ```{r}
-# possible obs to drop
-# again, Rutgers at New Brunswick is pointed out
 outlierTest(reg0)
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.3 - Outlier test}\end{center}
 \hrulefill
 
 ```{r}
-# SECOND SIMPLE LINEAR MODEL
-# dropping enroll, f.undergrad, and Rutgers at New Brunswick
+# SECOND LINEAR MODEL
+# dropping enroll, f.undergrad, top10perc, and Rutgers
 df1 = data.frame(df0)
 df1$enroll = NULL
 df1$f.undergrad = NULL
+df1$top10perc = NULL
 remove.rows = c('Rutgers at New Brunswick')
-df1 = df1[!(row.names(df1) %in% remove.rows), ]
+df1 = df1[!(row.names(df1) %in% remove.rows),]
+
 reg1 = lm(apps ~ ., data=df1)
 summary(reg1)
-# again, weird residuals, but not as bad as before
-plot(reg1, which=1)
-cat('MSE:',mean(summary(reg1)$residuals^2))
-# MSE is lower at 939537
+
+plot(reg1, which=1, caption='Second linear model, residuals vs. fitted')
+cat('MSE:', mean(summary(reg1)$residuals^2))
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.4 - Second linear model}\end{center}
 \hrulefill
 
 ```{r}
-# THIRD SIMPLE LINEAR MODEL
+# THIRD LINEAR MODEL
 # log transforming the response variable
 reg2 = lm(log(apps) ~ . - apps, data=df1)
 summary(reg2)
-# fit looks kinda bad and adj R^2 drops
-plot(reg2, which=1)
-cat('MSE:',mean(summary(reg2)$residuals^2))
+
+plot(reg2, which=1, caption='Third linear model, residuals vs. fitted')
+cat('MSE:', mean(summary(reg2)$residuals^2))
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.5 - Third linear model}\end{center}
 \hrulefill
 
 ```{r}
-# FOURTH SIMPLE LINEAR MODEL
+# FOURTH LINEAR MODEL
 # log transforming skewed predictors
-# positive outliers and skew for apps, accept, p.undergrad, books, and expend
-reg3 = lm(log(apps) ~ private + log(accept) + top10perc + top25perc + log(p.undergrad)
-          + outstate + room.board + log(books) + personal + phd + terminal
+reg3 = lm(log(apps) ~ private + log(accept) + top25perc + log(p.undergrad)
+          + outstate + room.board + log(books) + log(personal) + phd + terminal
           + s.f.ratio + perc.alumni + log(expend) + grad.rate, data=df1)
 summary(reg3)
-# fit looks much better 
-plot(reg3, which=1)
-cat('MSE:',mean(summary(reg3)$residuals^2))
+
+plot(reg3, which=1, caption='Fourth linear model, residuals vs. fitted')
+cat('MSE:', mean(summary(reg3)$residuals^2))
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.6 - Fourth linear model}\end{center}
 \hrulefill
 
 ```{r}
@@ -173,18 +162,31 @@ df1$accept.log = log(df1$accept)
 df1$p.undergrad.log = log(df1$p.undergrad)
 df1$books.log = log(df1$books)
 df1$expend.log = log(df1$expend)
+df1$personal.log = log(df1$personal)
+
 df1$apps = NULL
 df1$accept = NULL
 df1$p.undergrad = NULL
 df1$books = NULL
 df1$expend = NULL
+df1$personal = NULL
+
+numdf1 = model.matrix(~., data=df1)[,-1]
+boxplot(scale(numdf1), las=2, main='College data set after transformations, scaled')
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.7 - Scaled boxplots, log transformed}\end{center}
 \hrulefill
 
 ```{r}
-# BEST SUBSET SELECTION
+sort(vif(reg3), decreasing=T)
+```
+\begin{center}\textbf{Figure 2.8 - VIFs, fourth linear model}\end{center}
+\hrulefill
+
+
+```{r}
+# BEST SUBSETS SELECTION
 
 df = data.frame(df1)
 
@@ -192,95 +194,136 @@ df = data.frame(df1)
 set.seed(90210)
 train = sample(1:nrow(df), nrow(df)/2)
 test = (-train)
+
 # number of predictors p
 nvmax = length(names(df)) - 1
+
 bss = regsubsets(apps.log ~ ., data=df[train,], nvmax=nvmax)
 test.mat = model.matrix(apps.log ~ ., data=df[test,])
+
 val.errors = rep(NA,nvmax)
 for(i in 1:nvmax){
-coefi = coef(bss, id=i)
-pred = test.mat[,names(coefi)] %*% coefi
-val.errors[i] = mean((df$apps.log[test] - pred)^2)
+  coefi = coef(bss, id=i)
+  pred = test.mat[,names(coefi)] %*% coefi
+  val.errors[i] = mean((df$apps.log[test] - pred)^2)
 }
+
 num.vars = which.min(val.errors)
 coef(bss, num.vars)
 paste("The winning model contains", num.vars, "variables")
-paste("The test set MSE for the model chosen by best subset selection is", round(val.errors[num.vars], 4))
-# still the best. BSS is generally better in high signal-to-noise ratio regimes, so we can conclude
-# that a lot of these variables are provide useful information when it comes to predicting `apps.log`
+paste("The test set MSE for the model chosen by best subsets selection is", round(val.errors[num.vars], 4))
 ```
-\begin{center}\textbf{Figure X - Best subset selection}\end{center}
+\begin{center}\textbf{Figure 3.1 - Best subsets selection}\end{center}
 \hrulefill
 
 ```{r}
 # RIDGE
+
 X = model.matrix(apps.log ~ ., df)[,-1]
 y = df$apps.log
+
 Xtrain = X[train,]
 Xtest = X[test,]
 ytrain = y[train]
 ytest = y[test]
+
 lambda = 10^seq(10, -4, length=5000)
+
 cv.ridge = cv.glmnet(Xtrain, ytrain, alpha=0, lambda=lambda)
+
 ridge.lambda = cv.ridge$lambda.min
+
 ridge = glmnet(Xtrain, ytrain, alpha=0, lambda=lambda)
 ridge.yhat = predict(ridge, s=ridge.lambda, newx=Xtest)
 ridge.test.mse = mean((ridge.yhat - ytest)^2)
+
 ridge.full = glmnet(X, y, alpha=0)
+
 # Refit on whole data set
 print(predict(ridge.full, type='coefficients', s=ridge.lambda))
 paste("The value of lambda that returns the smallest CV error for ridge is", round(ridge.lambda, 3))
 paste("The test set MSE for ridge is", round(ridge.test.mse, 4))
 ```
-\begin{center}\textbf{Figure X - Ridge}\end{center}
+\begin{center}\textbf{Figure 3.2 - Ridge}\end{center}
 \hrulefill
 
 ```{r}
 # LASSO
+
 cv.lasso = cv.glmnet(Xtrain, ytrain, alpha=1, lambda=lambda)
+
 lasso.lambda = cv.lasso$lambda.min
+
 lasso = glmnet(Xtrain, ytrain, alpha=1, lambda=lambda)
 lasso.yhat = predict(lasso, s=lasso.lambda, newx=Xtest)
 lasso.test.mse = mean((lasso.yhat - ytest)^2)
+
 lasso.full = glmnet(X, y, alpha=1)
+
 # Refit on whole data set
 print(predict(lasso.full, type='coefficients', s=lasso.lambda))
 paste("The value of lambda that yields the smallest CV error for lasso is", round(lasso.lambda, 3))
 paste("The test set MSE for lasso is", round(lasso.test.mse, 4))
 ```
-\begin{center}\textbf{Figure X - Lasso}\end{center}
+\begin{center}\textbf{Figure 3.3 - Lasso}\end{center}
 \hrulefill
 
 ```{r}
 # PCR
+
 cv.pcr = pcr(apps.log ~ ., data=df, subset=train, scale=T, validation='CV')
+
 cverr = MSEP(cv.pcr)$val[1,,]
 ncomp = (which.min(cverr) - 1)[[1]]
+
 pcr.yhat = predict(cv.pcr, Xtest, ncomp=ncomp)
 pcr.mse = mean((pcr.yhat - ytest)^2)
+
 pcr.full = pcr(y~X, scale=T, ncomp=ncomp)
-cat('Optimal number of principal components: ', ncomp)
-cat('Test MSE for pcr: ', round(pcr.mse, 4))
-# 16 principal components = OLS
+
+paste('Optimal number of principal components: ', ncomp)
+paste('Test MSE for pcr: ', round(pcr.mse, 4))
+
+validationplot(cv.pcr, val.type='MSEP', main='Validation plot, PCR')
 ```
-\begin{center}\textbf{Figure X - Principal Components Regression}\end{center}
+\begin{center}\textbf{Figure 3.4 - Principal components regression}\end{center}
 \hrulefill
 
 ```{r}
 # PLSR
+
 cv.pls = plsr(apps.log ~ ., data=df, subset=train, scale=T, validation='CV')
+
 cverr = MSEP(cv.pls)$val[1,,]
 ncomp = (which.min(cverr) - 1)[[1]]
+
 pls.yhat = predict(cv.pls, Xtest, ncomp=ncomp)
 pls.mse = mean((pls.yhat - ytest)^2)
+
 pls.full = plsr(y~X, scale=T, ncomp=ncomp)
-cat('Optimal number of components: ', ncomp)
-cat('Test MSE for pls: ', round(pls.mse, 4))
+
+paste('Optimal number of components: ', ncomp)
+paste('Test MSE for pls: ', round(pls.mse, 4))
+
+validationplot(cv.pls, val.type='MSEP', main='Validation plot, PLS')
 ```
-\begin{center}\textbf{Figure X - Partial Least Squares Regression}\end{center}
+\begin{center}\textbf{Figure 3.5 - Partial least squares regression}\end{center}
+\hrulefill
+
+|          | BSS    | Ridge      | Lasso  | PCR    | PLSR   |
+|----------|--------|------------|--------|--------|--------|
+| p/ncomp  | 13     | 14         | 10     | 14     | 10     |
+| lambda   |        | 0.001      | 0.006  |        |        |
+| Test MSE | 0.0456 | **0.0455** | 0.0461 | 0.0456 | 0.0456 |
+
+\begin{center}\textbf{Figure 4 - Summary of model performance}\end{center}
 \hrulefill
 
 # 4. Conclusions
+
+In this project, I explored the `College` data set, finding that some transformations and omissions made it easier to fit a linear model to `apps.log`. After that, I used best subsets selection, ridge, lasso, PCR, and PLSR to try to predict on the test data after using 10-fold cross validation with the training data, finding that while lasso underperformed, the other four techniques were extremely similar in performance, suggesting that most, if not all of the variables kept in the data were useful for predicting `apps.log`. Ridge was technically the most performant model with the lowest test MSE, but only by a tiny amount. 
+
+Ridge and PCR had similar results, and both here chose the same amount of variables/components, so it is interesting to see a difference in test MSE. The effect of regularization on the MSE offered by the ridge lambda of 0.001 was small enough (MSE = 0.0455) where it's nearly equivalent to simply dropping the `phd` variable, as we saw in BSS (MSE = 0.0456). For this reason, I would choose the BSS OLS model as the winning model in this case, mostly due to its simplicity and interpretability relative to ridge and lasso and especially components-based techniques like PCR and PLSR. In this case, where the signal-to-noise ratio seems high and prudent transformations and other treatments were made, the more sophisticated techniques we've seen here do not provide much lift when it comes to predicting `apps.log`.
 
 # 5. Appendix
 

@@ -1,0 +1,74 @@
+---
+title: "STAT 508 Data Analysis Assignment 7"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>')
+
+SR = read.table("ABBREV.txt", header=F, row.names=1, sep="^", quote="~")
+SR = na.omit(SR) # remove rows with missing values
+SR = SR[row.names(SR) != "13352",] # remove "duplicate" entry
+row.names(SR) = SR[,1] # set more meaningful row names
+SR = SR[,-1]
+names(SR) = c("Water_(g)", "Energ_Kcal", "Protein_(g)", "Lipid_Tot_(g)", "Ash_(g)", "Carbohydrt_(g)", "Fiber_TD_(g)", "Sugar_Tot_(g)", "Calcium_(mg)", "Iron_(mg)", "Magnesium_(mg)", "Phosphorus_(mg)", "Potassium_(mg)", "Sodium_(mg)", "Zinc_(mg)", "Copper_(mg)", "Manganese_(mg)", "Selenium_(µg)", "Vit_C_(mg)", "Thiamin_(mg)", "Riboflavin_(mg)", "Niacin_(mg)", "Panto_Acid_(mg)", "Vit_B6_(mg)", "Folate_Tot_(µg)", "Folic_Acid_(µg)", "Food_Folate_(µg)", "Folate_DFE_(µg)", "Choline_Tot_(mg)", "Vit_B12_(µg)", "Vit_A_IU", "Vit_A_RAE", "Retinol_(µg)", "Alpha_Carot_(µg)", "Beta_Carot_(µg)", "Beta_Crypt_(µg)", "Lycopene_(µg)", "Lut+Zea_(µg)", "Vit_E_(mg)", "Vit_D_µg", "Vit_D_IU", "Vit_K_(µg)", "FA_Sat_(g)", "FA_Mono_(g)", "FA_Poly_(g)", "Cholestrl_(mg)", "GmWt_1", "GmWt_Desc1", "GmWt_2", "GmWt_Desc2", "Refuse_Pct")
+df = SR[,c(1:46)] # restrict to just the nutrient variables
+```
+
+# 0. Introduction
+
+This week, we're applying PCA to USDA food composition data.
+
+# 1. Data
+
+We're looking at a food composition data set with 2223 observations and 46 variables, where each observation is a particular food item and each variable is the mean nutrient value per 100g of the edible portion of the food, for example protein content in grams or vitamin C content in milligrams. All variables are either `num` or `int` (no factors or strings).
+
+# 2. Analyses
+
+*Perform PCA on the data. Don't forget to center and scale all the variables. How many principal components would you need to adequately represent this data in lower dimension? Are the first few principal components capturing any interpretable combinations of the nutrients?*
+
+# 3. Plots and Tables
+
+```{r}
+str(df)
+```
+\begin{center}\textbf{Figure X - Structure of the SRp data set}\end{center}
+\hrulefill
+
+```{r}
+pr.out = prcomp(df, scale=T)
+
+# proportion of variance explained by each principal component
+summary(pr.out)
+# the first component explains 15.9%, second 9.4%, third 9.1% etc of variance
+```
+\begin{center}\textbf{Figure X - PCA, proportion of variance explained}\end{center}
+\hrulefill
+
+```{r}
+plot(pve, xlab='Principal Component', ylab='Proportion of Variance Explained', 
+     ylim=c(0,1), type='b', col='blue', main='Scree and cumulative PVE plot')
+points(cumsum(pve), col='darkorange')
+text(40, 0.9, label='Cumulative PVE', col='darkorange')
+text(40, 0.1, label='PVE by component', col='blue')
+```
+\begin{center}\textbf{Figure X - PVE plots}\end{center}
+\hrulefill
+
+```{r}
+# hard to see the elbow in that plot. let's scale to max(pve)
+plot(pve, xlab='Principal Component', ylab='Proportion of Variance Explained', 
+     ylim=c(0,max(pve)), type='b', col='blue', main='Scree plot, zoomed')
+# elbow at 6 or 7
+```
+\begin{center}\textbf{Figure X - Scree plot, zoomed}\end{center}
+\hrulefill
+
+# 4. Conclusions
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo=T, eval=F}
+```
