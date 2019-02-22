@@ -27,7 +27,12 @@ We're looking at a food composition data set with 2223 observations and 46 varia
 
 # 2. Analyses
 
-*Perform PCA on the data. Don't forget to center and scale all the variables. How many principal components would you need to adequately represent this data in lower dimension? Are the first few principal components capturing any interpretable combinations of the nutrients?*
+*Perform PCA on the data. Don't forget to center and scale all the variables.*
+Done
+*How many principal components would you need to adequately represent this data in lower dimension?*
+7 (elbow)
+*Are the first few principal components capturing any interpretable combinations of the nutrients?*
+Looking at the first 3.
 
 # 3. Plots and Tables
 
@@ -48,9 +53,13 @@ summary(pr.out)
 \hrulefill
 
 ```{r}
+pr.var = pr.out$sdev^2
+pve = pr.var/sum(pr.var)
+
 plot(pve, xlab='Principal Component', ylab='Proportion of Variance Explained', 
      ylim=c(0,1), type='b', col='blue', main='Scree and cumulative PVE plot')
 points(cumsum(pve), col='darkorange')
+
 text(40, 0.9, label='Cumulative PVE', col='darkorange')
 text(40, 0.1, label='PVE by component', col='blue')
 ```
@@ -61,9 +70,43 @@ text(40, 0.1, label='PVE by component', col='blue')
 # hard to see the elbow in that plot. let's scale to max(pve)
 plot(pve, xlab='Principal Component', ylab='Proportion of Variance Explained', 
      ylim=c(0,max(pve)), type='b', col='blue', main='Scree plot, zoomed')
-# elbow at 6 or 7
+# slope levels off after 7, so elbow at 7
+# cumulative PVE is 56.47%
 ```
 \begin{center}\textbf{Figure X - Scree plot, zoomed}\end{center}
+\hrulefill
+
+```{r}
+# principal components score vectors, len=n=2223
+pr.out.x = pr.out$x
+
+# principal component loading vectors (weighting of variables), len=p=46
+pr.out.rotation = round(pr.out$rotation, 3)
+# from this we can see which variables are related and in what direction
+
+# first principal component and its loadings
+sort(pr.out.rotation[,1])
+# negative for nearly everything but water. Watery stuff has less of everything in it?
+```
+\begin{center}\textbf{Figure X - Loadings for PC1}\end{center}
+\hrulefill
+
+```{r}
+# second principal component and its loadings
+sort(pr.out.rotation[,2])
+# high protein, fat, (water soluble?) vitamins, calories
+# low fiber, fat soluble vitamins, carbs, sugar
+```
+\begin{center}\textbf{Figure X - Loadings for PC2}\end{center}
+\hrulefill
+
+```{r}
+# third principal component and its loadings
+sort(pr.out.rotation[,3])
+# healthy foods? high water, protein, vitamins
+# low calories, fat (total, mono, poly, and sat), sugar
+```
+\begin{center}\textbf{Figure X - Loadings for PC3}\end{center}
 \hrulefill
 
 # 4. Conclusions
