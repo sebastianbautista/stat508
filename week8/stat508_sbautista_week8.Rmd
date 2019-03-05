@@ -1,0 +1,229 @@
+---
+title: "STAT 508 Data Analysis Assignment 8"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE, cache=T}
+knitr::opts_chunk$set(comment='>')
+
+library(readxl)
+eretail = read_excel("Online Retail.xlsx")
+dim(eretail)
+names(eretail)
+
+eretail = eretail[eretail$Country != "Unspecified",] # remove 'unspecified' country
+eretail = eretail[eretail$Quantity > 0,]             # remove returns/cancellations
+
+IDtab = table(eretail$Country, eretail$CustomerID)   # crosstab country by customer ID
+IDtab = apply(IDtab >0, 2, sum)                      # is any customer ID duplicated across countries?
+duplicateIDs = names(IDtab[IDtab > 1])               # duplicate IDs to clean up
+eretail = eretail[!is.element(eretail$CustomerID, duplicateIDs),]
+rm(IDtab)
+
+eretail$InvoiceMth = substr(eretail$InvoiceDate, 1, 7)         # extract month of invoice
+eretail = eretail[as.vector(eretail$InvoiceMth) != "2011-12",] # remove December 2011 as it only covers first week
+
+eretail$Amount = eretail$Quantity * eretail$UnitPrice           # compute amount per invoice item
+
+eaggr = aggregate(Amount~Country+CustomerID, data=eretail, sum) # compute aggregate amount spent per customer
+row.names(eaggr) = eaggr$CustomerID
+eaggr = eaggr[,-2]
+eaggr = cbind(eaggr, aggregate(InvoiceMth~CustomerID, data=eretail, min)[,-1]) # 1st month of customer interaction
+names(eaggr)[3] = "FirstMth"
+eaggr = cbind(eaggr, aggregate(InvoiceMth~CustomerID, data=eretail, max)[,-1]) # last month of cust. interaction
+names(eaggr)[4] = "LastMth"
+
+# relabel months and compute duration of customer interaction
+levels(eaggr$FirstMth) = 1:12
+levels(eaggr$LastMth) = 1:12
+eaggr$FirstMth = as.numeric(as.vector(eaggr$FirstMth))
+eaggr$LastMth = as.numeric(as.vector(eaggr$LastMth))
+eaggr$Months = eaggr$LastMth - eaggr$FirstMth + 1
+
+eaggr = cbind(eaggr, apply( table(eretail$CustomerID, eretail$InvoiceMth) , 1, sum ) )
+names(eaggr)[6] = "Purchases"
+
+# Some useful statistics (which you may or may not decide to use)
+eaggr$Amount.per.Purchase = eaggr$Amount / eaggr$Purchases
+eaggr$Purchases.per.Month = eaggr$Purchases / eaggr$Months
+eaggr$Amount.per.Month = eaggr$Amount / eaggr$Months
+
+eaggr[1:30,]
+
+df = eaggr
+colnames(df) = tolower(colnames(df))
+```
+
+# 0. Introduction
+
+# 1. Data
+
+# 2. Analyses
+
+*Using cluster analysis, your aim is to identify whether this company's consumers can be segmented meaningfully by the recency and duration of their interaction with the company, the frequency of their purchases/orders, and the amount they spent (amounts are in Sterling pounds). Further segmentation by country would also be very helpful for marketing purposes.*
+
+Recency - `lastmth`
+Duration - `months`
+Frequency - `purchases`, `purchases.per.month`
+Amount - `amount`, `amount.per.purchase`, `amount.per.month`
+
+*For the data source, documentation, and an interesting study using a variant of this data, please see https://archive.ics.uci.edu/ml/datasets/Online%20Retail*
+
+# 3. Plots and Tables
+
+```{r}
+cat('The data contains', length(unique(df$country)), 'unique countries\n')
+table(df$country)
+
+# create `intl` dummy variable because of predominance of UK customers
+# and to coerce `country` into something numeric and sensible
+df$intl = 0
+mask = which(df$country != 'United Kingdom')
+df$intl[mask] = 1
+df$country = NULL
+
+# scale and print summary
+df = scale(df)
+row.names(df) = NULL
+summary(df)
+```
+
+\hrulefill
+
+```{r}
+# K-means clustering, k=2
+set.seed(7)
+km.2 = kmeans(df, 2, nstart=50)
+
+cat('K-means clustering with', length(km.2$size), 'clusters of size', km.2$size[1], ',', km.2$size[2])
+
+# cluster means
+cat('\n\nCluster means:\n')
+round(km.2$centers, 4) 
+# within cluster sum of squares - variance in data set explained by clustering
+# k-means minimizes within group dispersion and maximizes between group dispersion
+# by assigning the obs to these clusters rather than n clusters,
+# we achieve a reduction in sum of squares of 17.3%
+cat('\nBetween ss / Total ss:\n')
+round(km.2$betweenss/km.2$totss, 4)
+```
+
+\hrulefill
+
+```{r}
+# K-means clustering, k=3
+km.3 = kmeans(df, 3, nstart=50)
+
+cat('K-means clustering with', length(km.3$size), 'clusters of size', 
+    km.3$size[1], ',', km.3$size[2], ',', km.3$size[3])
+
+# cluster means
+cat('\n\nCluster means:\n')
+round(km.3$centers, 4) 
+
+# within cluster sum of squares - variance in data set explained by clustering
+cat('\nBetween ss / Total ss:\n')
+round(km.3$betweenss/km.3$totss, 4)
+```
+
+\hrulefill
+
+```{r}
+# K-means clustering, k=4
+km.4 = kmeans(df, 4, nstart=50)
+
+cat('K-means clustering with', length(km.4$size), 'clusters of size', 
+    km.4$size[1], ',', km.4$size[2], ',', km.4$size[3], ',', km.4$size[4])
+
+# cluster means
+cat('\n\nCluster means:\n')
+round(km.4$centers, 4) 
+
+# within cluster sum of squares - variance in data set explained by clustering
+cat('\nBetween ss / Total ss:\n')
+round(km.4$betweenss/km.4$totss, 4)
+```
+
+\hrulefill
+
+```{r}
+# K-means clustering, k=5
+# might stop here because we get a singleton observation
+km.5 = kmeans(df, 5, nstart=50)
+
+cat('K-means clustering with', length(km.5$size), 'clusters of size', 
+    km.5$size[1], ',', km.5$size[2], ',', km.5$size[3], ',', km.5$size[4], ',', km.5$size[5])
+
+# cluster means
+cat('\n\nCluster means:\n')
+round(km.5$centers, 4) 
+
+# within cluster sum of squares - variance in data set explained by clustering
+cat('\nBetween ss / Total ss:\n')
+round(km.5$betweenss/km.5$totss, 4)
+```
+
+\hrulefill
+
+```{r}
+# K-means clustering, k=6
+# too much? might delete and move on to hierarchical
+km.6 = kmeans(df, 6, nstart=50)
+
+cat('K-means clustering with', length(km.6$size), 'clusters of size', 
+    km.6$size[1], ',', km.6$size[2], ',', km.6$size[3], ',', km.6$size[4], ',', km.6$size[5],
+    ',', km.6$size[6])
+
+# cluster means
+cat('\n\nCluster means:\n')
+round(km.6$centers, 4) 
+
+# within cluster sum of squares - variance in data set explained by clustering
+cat('\nBetween ss / Total ss:\n')
+round(km.6$betweenss/km.6$totss, 4)
+```
+
+\hrulefill
+
+```{r}
+# hierarchical clustering
+# complete and average look ok but single looks terrible
+# will show it here, but compare k-means to complete and average later
+df.dist = dist(df)
+
+hcc = hclust(df.dist)
+hca = hclust(df.dist, method='average')
+hcs = hclust(df.dist, method='single')
+
+plot(hcc, main="Complete Linkage", xlab="", ylab="", sub="")
+plot(hca, main="Average Linkage", xlab="", ylab="", sub="")
+plot(hcs, labels=F, main="Single Linkage", xlab="", ylab="", sub="")
+```
+
+\hrulefill
+
+```{r}
+hcc.clusters.5 = cutree(hcc, 5)
+table(hcc.clusters.5)
+
+hca.clusters.5 = cutree(hca, 5)
+table(hca.clusters.5)
+```
+
+
+```{r}
+# example of using hclust to visualize k=5 clusters for `hcc`
+plot(hcc, labels=F, main="Complete Linkage", xlab="", ylab="", sub="")
+rect.hclust(hcc, k=5)
+```
+
+\hrulefill
+
+# 4. Conclusions
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo=T, eval=F}
+```
