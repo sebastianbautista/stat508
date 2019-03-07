@@ -58,6 +58,8 @@ colnames(df) = tolower(colnames(df))
 
 # 0. Introduction
 
+This week, we're using clustering techniques on sales data from a UK company. The original data is at the transaction level, but we aggregate to the customer level and create a few more variables in order to do our analysis. 
+
 # 1. Data
 
 # 2. Analyses
@@ -90,6 +92,8 @@ row.names(df) = NULL
 summary(df)
 ```
 
+\begin{center}\textbf{Figure X}\end{center}
+
 \hrulefill
 
 ```{r}
@@ -110,6 +114,8 @@ cat('\nBetween ss / Total ss:\n')
 round(km.2$betweenss/km.2$totss, 4)
 ```
 
+\begin{center}\textbf{Figure X}\end{center}
+
 \hrulefill
 
 ```{r}
@@ -127,6 +133,8 @@ round(km.3$centers, 4)
 cat('\nBetween ss / Total ss:\n')
 round(km.3$betweenss/km.3$totss, 4)
 ```
+
+\begin{center}\textbf{Figure X}\end{center}
 
 \hrulefill
 
@@ -146,6 +154,8 @@ cat('\nBetween ss / Total ss:\n')
 round(km.4$betweenss/km.4$totss, 4)
 ```
 
+\begin{center}\textbf{Figure X}\end{center}
+
 \hrulefill
 
 ```{r}
@@ -164,6 +174,8 @@ round(km.5$centers, 4)
 cat('\nBetween ss / Total ss:\n')
 round(km.5$betweenss/km.5$totss, 4)
 ```
+
+\begin{center}\textbf{Figure X}\end{center}
 
 \hrulefill
 
@@ -185,6 +197,8 @@ cat('\nBetween ss / Total ss:\n')
 round(km.6$betweenss/km.6$totss, 4)
 ```
 
+\begin{center}\textbf{Figure X}\end{center}
+
 \hrulefill
 
 ```{r}
@@ -196,28 +210,151 @@ df.dist = dist(df)
 hcc = hclust(df.dist)
 hca = hclust(df.dist, method='average')
 hcs = hclust(df.dist, method='single')
+hcce = hclust(df.dist, method='centroid')
 
 plot(hcc, main="Complete Linkage", xlab="", ylab="", sub="")
 plot(hca, main="Average Linkage", xlab="", ylab="", sub="")
-plot(hcs, labels=F, main="Single Linkage", xlab="", ylab="", sub="")
+plot(hcs, main="Single Linkage", xlab="", ylab="", sub="")
+plot(hcce, main="Centroid Linkage", xlab="", ylab="", sub="")
 ```
+
+\begin{center}\textbf{Figure X}\end{center}
 
 \hrulefill
 
 ```{r}
+hcc.clusters.10 = cutree(hcc, 10)
+table(hcc.clusters.10)
+
+hcc.clusters.9 = cutree(hcc, 9)
+table(hcc.clusters.9)
+
+hcc.clusters.8 = cutree(hcc, 8)
+table(hcc.clusters.8)
+
+hcc.clusters.7 = cutree(hcc, 7)
+table(hcc.clusters.7)
+
+hcc.clusters.6 = cutree(hcc, 6)
+table(hcc.clusters.6)
+
 hcc.clusters.5 = cutree(hcc, 5)
 table(hcc.clusters.5)
 
-hca.clusters.5 = cutree(hca, 5)
-table(hca.clusters.5)
+hcc.clusters.4 = cutree(hcc, 4)
+table(hcc.clusters.4)
+
+hcc.clusters.3 = cutree(hcc, 3)
+table(hcc.clusters.3)
+
+# looks pretty weird. probably not the way to go
+# anything between k=3 and k=10 leads to one huge cluster and lots of small ones
 ```
 
+\begin{center}\textbf{Figure X}\end{center}
+
+\hrulefill
+
+```{r}
+hca.clusters.10 = cutree(hca, 10)
+table(hca.clusters.10)
+
+hca.clusters.9 = cutree(hca, 9)
+table(hca.clusters.9)
+
+hca.clusters.8 = cutree(hca, 8)
+table(hca.clusters.8)
+
+hca.clusters.7 = cutree(hca, 7)
+table(hca.clusters.7)
+
+hca.clusters.6 = cutree(hca, 6)
+table(hca.clusters.6)
+
+hca.clusters.5 = cutree(hca, 5)
+table(hca.clusters.5)
+
+hca.clusters.4 = cutree(hca, 4)
+table(hca.clusters.4)
+
+hca.clusters.3 = cutree(hca, 3)
+table(hca.clusters.3)
+# same as above
+```
+
+\begin{center}\textbf{Figure X}\end{center}
+
+\hrulefill
+
+```{r}
+hcs.clusters.10 = cutree(hcs, 10)
+table(hcs.clusters.10)
+
+hcs.clusters.9 = cutree(hcs, 9)
+table(hcs.clusters.9)
+
+hcs.clusters.8 = cutree(hcs, 8)
+table(hcs.clusters.8)
+
+hcs.clusters.7 = cutree(hcs, 7)
+table(hcs.clusters.7)
+
+hcs.clusters.6 = cutree(hcs, 6)
+table(hcs.clusters.6)
+
+hcs.clusters.5 = cutree(hcs, 5)
+table(hcs.clusters.5)
+
+hcs.clusters.4 = cutree(hcs, 4)
+table(hcs.clusters.4)
+
+hcs.clusters.3 = cutree(hcs, 3)
+table(hcs.clusters.3)
+# again same as above and even worse, with tons of singletons
+```
+
+\begin{center}\textbf{Figure X}\end{center}
+
+\hrulefill
+
+```{r}
+hcce.clusters.10 = cutree(hcce, 10)
+table(hcce.clusters.10)
+
+hcce.clusters.9 = cutree(hcce, 9)
+table(hcce.clusters.9)
+
+hcce.clusters.8 = cutree(hcce, 8)
+table(hcce.clusters.8)
+
+hcce.clusters.7 = cutree(hcce, 7)
+table(hcce.clusters.7)
+
+hcce.clusters.6 = cutree(hcce, 6)
+table(hcce.clusters.6)
+
+hcce.clusters.5 = cutree(hcce, 5)
+table(hcce.clusters.5)
+
+hcce.clusters.4 = cutree(hcce, 4)
+table(hcce.clusters.4)
+
+hcce.clusters.3 = cutree(hcce, 3)
+table(hcce.clusters.3)
+# no improvement. go with kmeans
+```
+
+\begin{center}\textbf{Figure X}\end{center}
+
+\hrulefill
 
 ```{r}
 # example of using hclust to visualize k=5 clusters for `hcc`
 plot(hcc, labels=F, main="Complete Linkage", xlab="", ylab="", sub="")
 rect.hclust(hcc, k=5)
 ```
+
+\begin{center}\textbf{Figure X}\end{center}
 
 \hrulefill
 
