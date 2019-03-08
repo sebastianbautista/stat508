@@ -58,9 +58,11 @@ colnames(df) = tolower(colnames(df))
 
 # 0. Introduction
 
-This week, we're using clustering techniques on sales data from a UK company. The original data is at the transaction level, but we aggregate to the customer level and create a few more variables in order to do our analysis. 
+This week, we're using clustering techniques on sales data from a UK-based company. The original data is at the transaction level, but we aggregate to the customer level and create a few more variables in order to do our analysis. I begin by changing the data into a form that clustering algorithms can work with. Then, I try out k-means clustering and hierarchical clustering, varying values of *k* for both algorithms and methods of calculating distance for `hclust`. I find that k-means results in much more interesting and informative clusters compared to hierarchical clustering, regardless of whether complete, average, single, or centroid linkage is used for `hclust`. 
 
 # 1. Data
+
+The data set created after aggregation, `eaggr`, contains 4286 observations and 9 variables. Each observation represents a customer and each row is indexed by customer ID. Variables include the customer's country, the total amount of pounds spent (quantity times price), the first and last months of customer interaction, and the number of purchases by a customer, as well as the amount of pounds spent per purchase, the number of purchases per month, and the amount of pounds spent per month. All but `country` are numeric; in **figure 1.1** I use this character variable to create a dummy variable called `intl` which is equal to 1 if the customer is outside of the UK and 0 otherwise. 
 
 # 2. Analyses
 
@@ -85,14 +87,20 @@ df$intl = 0
 mask = which(df$country != 'United Kingdom')
 df$intl[mask] = 1
 df$country = NULL
+```
 
+\begin{center}\textbf{Figure 1.1 - Data preparation}\end{center}
+
+\hrulefill
+
+```{r}
 # scale and print summary
 df = scale(df)
 row.names(df) = NULL
 summary(df)
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 1.2 - Summary statistics}\end{center}
 
 \hrulefill
 
@@ -102,6 +110,8 @@ set.seed(7)
 km.2 = kmeans(df, 2, nstart=50)
 
 cat('K-means clustering with', length(km.2$size), 'clusters of size', km.2$size[1], ',', km.2$size[2])
+
+cat('\nIn percentage terms, the clusters make up ', round(km.2$size[1]/nrow(df), 3), round(km.2$size[2]/nrow(df), 3), 'of the data, respectively')
 
 # cluster means
 cat('\n\nCluster means:\n')
@@ -114,7 +124,7 @@ cat('\nBetween ss / Total ss:\n')
 round(km.2$betweenss/km.2$totss, 4)
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.1 - K-means, k=2}\end{center}
 
 \hrulefill
 
@@ -125,6 +135,11 @@ km.3 = kmeans(df, 3, nstart=50)
 cat('K-means clustering with', length(km.3$size), 'clusters of size', 
     km.3$size[1], ',', km.3$size[2], ',', km.3$size[3])
 
+cat('\nIn percentage terms, the clusters make up ', 
+    round(km.3$size[1]/nrow(df), 3), round(km.3$size[2]/nrow(df), 3), 
+    round(km.3$size[3]/nrow(df), 3),
+    'of the data, respectively')
+
 # cluster means
 cat('\n\nCluster means:\n')
 round(km.3$centers, 4) 
@@ -134,7 +149,7 @@ cat('\nBetween ss / Total ss:\n')
 round(km.3$betweenss/km.3$totss, 4)
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.2 - K-means, k=3}\end{center}
 
 \hrulefill
 
@@ -145,6 +160,11 @@ km.4 = kmeans(df, 4, nstart=50)
 cat('K-means clustering with', length(km.4$size), 'clusters of size', 
     km.4$size[1], ',', km.4$size[2], ',', km.4$size[3], ',', km.4$size[4])
 
+cat('\nIn percentage terms, the clusters make up ', 
+    round(km.4$size[1]/nrow(df), 3), round(km.4$size[2]/nrow(df), 3), 
+    round(km.4$size[3]/nrow(df), 3), round(km.4$size[4]/nrow(df), 3),
+    'of the data, respectively')
+
 # cluster means
 cat('\n\nCluster means:\n')
 round(km.4$centers, 4) 
@@ -154,7 +174,7 @@ cat('\nBetween ss / Total ss:\n')
 round(km.4$betweenss/km.4$totss, 4)
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.3 - K-means, k=4}\end{center}
 
 \hrulefill
 
@@ -166,6 +186,12 @@ km.5 = kmeans(df, 5, nstart=50)
 cat('K-means clustering with', length(km.5$size), 'clusters of size', 
     km.5$size[1], ',', km.5$size[2], ',', km.5$size[3], ',', km.5$size[4], ',', km.5$size[5])
 
+cat('\nIn percentage terms, the clusters make up ', 
+    round(km.5$size[1]/nrow(df), 3), round(km.5$size[2]/nrow(df), 3), 
+    round(km.5$size[3]/nrow(df), 3), round(km.5$size[4]/nrow(df), 3),
+    round(km.5$size[5]/nrow(df), 3),
+    'of the data, respectively')
+
 # cluster means
 cat('\n\nCluster means:\n')
 round(km.5$centers, 4) 
@@ -175,35 +201,14 @@ cat('\nBetween ss / Total ss:\n')
 round(km.5$betweenss/km.5$totss, 4)
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2.4 - K-means, k=5 (final)}\end{center}
 
 \hrulefill
 
-```{r}
-# K-means clustering, k=6
-# too much? might delete and move on to hierarchical
-km.6 = kmeans(df, 6, nstart=50)
-
-cat('K-means clustering with', length(km.6$size), 'clusters of size', 
-    km.6$size[1], ',', km.6$size[2], ',', km.6$size[3], ',', km.6$size[4], ',', km.6$size[5],
-    ',', km.6$size[6])
-
-# cluster means
-cat('\n\nCluster means:\n')
-round(km.6$centers, 4) 
-
-# within cluster sum of squares - variance in data set explained by clustering
-cat('\nBetween ss / Total ss:\n')
-round(km.6$betweenss/km.6$totss, 4)
-```
-
-\begin{center}\textbf{Figure X}\end{center}
-
-\hrulefill
 
 ```{r}
 # hierarchical clustering
-# complete and average look ok but single looks terrible
+# complete, average, and centroid look ok but single looks terrible
 # will show it here, but compare k-means to complete and average later
 df.dist = dist(df)
 
@@ -218,7 +223,7 @@ plot(hcs, main="Single Linkage", xlab="", ylab="", sub="")
 plot(hcce, main="Centroid Linkage", xlab="", ylab="", sub="")
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 3.1 - Hierarchical clustering and dendograms}\end{center}
 
 \hrulefill
 
@@ -251,7 +256,7 @@ table(hcc.clusters.3)
 # anything between k=3 and k=10 leads to one huge cluster and lots of small ones
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 3.2 - Complete linkage, k=3 to 10}\end{center}
 
 \hrulefill
 
@@ -282,7 +287,7 @@ table(hca.clusters.3)
 # same as above
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 3.3 - Average linkage, k=3 to 10}\end{center}
 
 \hrulefill
 
@@ -313,7 +318,7 @@ table(hcs.clusters.3)
 # again same as above and even worse, with tons of singletons
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 3.4 - Single linkage, k=3 to 10}\end{center}
 
 \hrulefill
 
@@ -344,7 +349,7 @@ table(hcce.clusters.3)
 # no improvement. go with kmeans
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 3.5 - Centroid linkage, k=3 to 10}\end{center}
 
 \hrulefill
 
@@ -354,7 +359,7 @@ plot(hcc, labels=F, main="Complete Linkage", xlab="", ylab="", sub="")
 rect.hclust(hcc, k=5)
 ```
 
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 3.6 - Complete linkage, k=5 visualized}\end{center}
 
 \hrulefill
 
