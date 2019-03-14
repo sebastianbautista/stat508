@@ -1,0 +1,125 @@
+---
+title: "STAT 508 Data Analysis Assignment 9"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>')
+options(digits=2)
+
+library(ISLR)
+df = Weekly
+names(df) = tolower(names(df))
+```
+
+# 0. Introduction
+
+This week, we're looking at a data set containing weekly percentage returns for the S&P 500 between 1990 and 2010. 
+
+# 1. Data
+
+Our data set contains 1089 observations representing 47 weeks in 1990 and 52 weeks for each year between 1991 and 2010. The 9 variables in the data set represent the year, one- to five-week lags of percentage returns, the volume of shares traded (billions), the percentage return for the  present week, and a factor variable indicating positive or negative returns for the current week. All but the final variable are numeric. **Figure X** shows the structure of the data.
+
+# 2. Analyses
+
+*1. Produce some numerical and graphical summaries. Do there appear to be any patterns?*
+
+*2. Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?*
+
+*3. Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.*
+
+*4. Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).*
+
+*5. Repeat step 4 using LDA.*
+
+*6. Repeat step 4 using QDA.*
+
+*7. Which of these methods appears to provide the best results on this data?*
+
+*8. Experiment with different combinations of predictors, including possible transformations and interactions, for each of the methods. Report the variables, method, and associated confusion matrix that appears to provide the best results on the held out data.*
+
+# 3. Plots and Tables
+
+```{r}
+str(df)
+```
+\begin{center}\textbf{Figure X - Structure of Weekly data set}\end{center}
+\hrulefill
+
+```{r}
+pairs(df[-9])
+```
+\begin{center}\textbf{Figure X - Pairwise correlation plots}\end{center}
+\hrulefill
+
+```{r}
+cor(df[-9])
+# high positive r between `volume` and `year` = more trades are made in later years
+# also high correlation between `today` and `directionUp` by design
+#   direction=up when today>0
+```
+\begin{center}\textbf{Figure X - Correlation matrix}\end{center}
+\hrulefill
+
+```{r}
+logit = glm(direction ~ lag1 + lag2 + lag3 + lag4 + lag5 + volume,
+              data=df, family=binomial)
+summary(logit)
+# the intercept and lag2 are statistically significant
+```
+\begin{center}\textbf{Figure X - Logistic regression}\end{center}
+\hrulefill
+
+```{r}
+logit.probs = predict(logit, type='response')
+logit.pred = rep("Down", nrow(df))
+logit.pred[logit.probs > 0.5] = "Up"
+
+table(logit.pred, df$direction)
+# do calculations here. accuracy, sensitivity(recall), specificity(true negative rate), precision(positive predictive value)
+```
+\begin{center}\textbf{Figure X - Confusion matrix}\end{center}
+\hrulefill
+
+```{r}
+#*4. Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).*
+
+train = (df$year < 2009)
+df.test = df[!train,]
+direction.test = df$direction[!train]
+
+# fit logit using training data, then predict on test data
+logit = glm(direction ~ lag1 + lag2 + lag3 + lag4 + lag5 + volume,
+              data=df, family=binomial, subset=train)
+logit.probs = predict(logit, df.test, type="response")
+
+# next compute predictions for 2005 and compare with actuals
+logit.pred = rep('Down', nrow(df.test))
+logit.pred[logit.probs > 0.5] = "Up"
+table(logit.pred, direction.test)
+mean(logit.pred==direction.test) # test accuracy
+mean(logit.pred!=direction.test) # test error
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+# 4. Conclusions
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo=T, eval=F}
+```
