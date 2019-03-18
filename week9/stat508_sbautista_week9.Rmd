@@ -29,15 +29,15 @@ Our data set contains 1089 observations representing 47 weeks in 1990 and 52 wee
 
 *1. Produce some numerical and graphical summaries. Do there appear to be any patterns?*
 
-**Figures 1.2 and 1.3** show pairwise correlations in graphic and numeric form. The most obvious correlation is between `volume` and `year`, which merely tells us that more trades are made as time goes on, probably a result of the Internet and other lowered barriers to entry related to stock trading. 
+**Figures 1.2 and 1.3** show pairwise correlations in graphic and numeric form. The most obvious pattern is positive correlation between `volume` and `year`, which merely tells us that more trades are made as time goes on, probably a result of the Internet and other lowered barriers to entry related to stock trading. 
 
 *2. Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?*
 
-**Figure 2.1** shows the results of fitting a logistic regression model to the full data set. The intercept and `lag2` are the only statistically significant variables. The positive intercept indicates that the S&P is more likely to go up than down, given that the other covariates are somehow 0. The positive coefficient on `lag2` tells us that a positive (negative) return in week *t-2* is associated with a positive (negative) return in the current week, week *t*. 
+**Figure 2.1** shows the results of fitting a logistic regression model to the full data set. The intercept and `lag2` are the only statistically significant variables. The positive intercept indicates that the S&P is more likely to go up than down, controlling for lags 1-5 and volume. The positive coefficient on `lag2` tells us that a positive (negative) return in week *t-2* is associated with a positive (negative) return in the current week, week *t*. 
 
 *3. Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.*
 
-Using the values in the confusion matrix, I calculate accuracy, recall/sensitivity, specificity, and precision. Accuracy of 56% tells us that the model was correct 56% of the time - since 56% of our data is the positive class "Up", we could trivially achieve this exact level of accuracy by predicting that the S&P 500 increases every week.
+Using the values in the confusion matrix, I calculate accuracy, recall/sensitivity, specificity, and precision in **figure 2.2**. Accuracy of 56% tells us that the model was correct 56% of the time - since 56% of our data is the positive class "Up", we could trivially achieve this exact level of accuracy by predicting that the S&P 500 increases every week.
 
 Recall/sensitivity is calculated to be 92%. This means that this model was able to correctly identify about 557 of the 605 weeks in the full data set that had positive returns.
 
@@ -49,13 +49,27 @@ All in all, this classifier has relatively high type II error (false negatives) 
 
 *4. Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).*
 
+**Figure 3.1** contains the results using the train-test split and `lag2` as the only predictor. These results are actually slightly better than the full set results, which may point to `lag2` being relatively useful for this classification task - the other covariates just added noise and variance to the model. Accuracy is slightly higher at 62%, better than just assuming every week would be positive. Recall/sensitivity/true positive rate is the same at 92%, so this model is very good at picking out the positive weeks in the test set - looking at the confusion matrix, this is reflected in the high number of true positives (56) compared to the positive class overall (56 + 5). Specificity, or the true negative rate, is 21% here which indicates that this model is better at picking out negative weeks than before, but not nearly as good as it is at picking out positive weeks. And similarly to accuracy, this model's test set precision is slightly higher than it was on the full data set. 
+
 *5. Repeat step 4 using LDA.*
+
+The LDA results can be found in **figure 3.2**. The results are identical to applying logistic regression to the test set, which is unsurprising since the two approaches are very similar. 
 
 *6. Repeat step 4 using QDA.*
 
+QDA results are in **figure 3.3**. This classifier appears to be predicting a vector of 1s; in other words, it predicts that every week in the test set is a positive week for the S&P. This leads to accuracy (and precision) trivially reaching 59%, the same as the prevalence of the positive class, as well as recall/sensitivity of 100% and specificity of 0%. This example illustrates the importance of looking at multiple measures of fit since any single one could be misleading.
+
 *7. Which of these methods appears to provide the best results on this data?*
 
+Since logistic regression and LDA have identical results and QDA results in purely positive predictions, both logistic and LDA provide the best results.
+
 *8. Experiment with different combinations of predictors, including possible transformations and interactions, for each of the methods. Report the variables, method, and associated confusion matrix that appears to provide the best results on the held out data.*
+
+Results from experimenting with interactions are in **figures 4.1 - 4.3**. Quickly summarizing, logistic regression and LDA perform much differently after including interactions, but QDA no longer just predicts the positive class (though it still performs badly). Overall, since specificity improves, this approach might be useful if we're interested in predicting both classes, but the results don't look great when looking at accuracy and recall. Despite the higher specificity, the lower recall makes it so these results aren't ideal.
+
+Next, in **figures 5.1 - 5.3**, I keep `lag2` but also try out using higher order terms by squaring and cubing `lag2`. Interestingly, the results for all three techniques are identical to the results when just using `lag2`, which tells us that these higher order terms don't provide any more help with respect to classifying weeks as positive or negative. For the sake of space and because they're identical to the first set of results, I don't report these results in **figure 6.** 
+
+Overall, the best results are found using logistic regression or LDA and the simple formula `direction ~ lag2`. 
 
 # 3. Plots and Tables
 
@@ -276,7 +290,7 @@ cat('QDA results for ')
 print(formula)
 cm.calc(qda.final)
 ```
-\begin{center}\textbf{Figure 5.3 - QDA with interactions}\end{center}
+\begin{center}\textbf{Figure 5.3 - QDA with higher order terms}\end{center}
 \hrulefill
 
 |                    | Logistic(lag2) | LDA(lag2) | QDA(lag2) | Logistic.int | LDA.int | QDA.int |
@@ -290,6 +304,10 @@ cm.calc(qda.final)
 \hrulefill
 
 # 4. Conclusions
+
+This week, we applied three different classification techniques to a stock returns data set in order to see how well we could predict whether returns in a given week are positive or negative. I found that logistic regression and LDA perform identically well, but QDA is lacking. The methods that worked had high recall/sensitivity, but low specificity, meaning that the classifiers were better at correctly predicting positive weeks compared to predicting negative weeks. They were also more accurate than blind guessing, which we saw in QDA(lag2). 
+
+After introducing interaction terms, the models became better at correctly picking out weeks with negative returns (higher specificity), but much worse at picking out positives(lower recall), leading to lower overall accuracy. When it comes to picking the model with the best results, I would go with Logistic(lag2) or LDA(lag2) because being able to identify 92% of positive weeks is useful. However, depending on an individual's trading strategy, higher specificity might be desirable, though the 50-65% range that we saw here might not be good enough.
 
 # 5. Appendix
 
