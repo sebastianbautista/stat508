@@ -17,6 +17,10 @@ names(df) = tolower(names(df))
 
 # 0. Introduction
 
+*Repeat step 4 from last week's prompts using kNN with k = 1.*
+*How does kNN compare with logistic regression, LDA, and QDA results you obtained last week? (You can reference last week's report directly. No need to re-run the analyses, unless you want to improve on them.)*
+*Experiment with different combinations of predictors, including possible transformations and interactions. Experiment with values for k in the kNN classifier. Report the variables, classifier, and associated confusion matrix that appears to provide the best results on the held out data.*
+
 # 1. Data
 
 # 2. Analyses
