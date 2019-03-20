@@ -13,12 +13,22 @@ library(ISLR)
 library(MASS)
 df = Weekly
 names(df) = tolower(names(df))
+
+train = (df$year < 2009)
+X = scale(df[,-9]) # SCALING DF
+
+Xtest = df[!train,]
+Xtrain = df[train,]
+ytest = df$direction[!train]
+ytrain = df$direction[train]
 ```
 
 # 0. Introduction
 
 *Repeat step 4 from last week's prompts using kNN with k = 1.*
+
 *How does kNN compare with logistic regression, LDA, and QDA results you obtained last week? (You can reference last week's report directly. No need to re-run the analyses, unless you want to improve on them.)*
+
 *Experiment with different combinations of predictors, including possible transformations and interactions. Experiment with values for k in the kNN classifier. Report the variables, classifier, and associated confusion matrix that appears to provide the best results on the held out data.*
 
 # 1. Data
@@ -32,3 +42,4 @@ names(df) = tolower(names(df))
 # 5. Appendix
 
 ```{r ref.label=knitr::all_labels(), echo=T, eval=F}
+```
