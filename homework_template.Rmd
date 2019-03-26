@@ -6,7 +6,8 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(comment='>')
+knitr::opts_chunk$set(comment='>', echo=F)
+options(digits=2)
 ```
 
 # 0. Introduction

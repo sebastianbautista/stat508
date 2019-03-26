@@ -11,33 +11,172 @@ options(digits=2)
 
 library(ISLR)
 library(MASS)
+library(class)
 df = Weekly
 names(df) = tolower(names(df))
 
 train = (df$year < 2009)
-X = scale(df[,-9]) # SCALING DF
 
-Xtest = df[!train,]
-Xtrain = df[train,]
+# SCALING DF
+X = scale(df[,-9]) 
+
+# train test split
+Xtest0 = as.data.frame(X[!train,])
+Xtrain0 = as.data.frame(X[train,])
 ytest = df$direction[!train]
 ytrain = df$direction[train]
 ```
 
 # 0. Introduction
 
+This week, we are repeating the analysis from last week, using kNN instead of logistic regression, LDA, and QDA. I find that kNN's results are different from the parametric methods we used, mostly in that they aren't as optimistic, which is reflected in a tendency toward lower recall and higher specificity relative to the previous week. 
+
+# 1. Data
+
+We're using the same data as last week. Some differences include how variables are defined - last week, we specified inclusion of variables using formulas, but this week we use `cbind` and `model.matrix` to merge columns (variables) to form the training and test sets. Also, generating predictions is done in one step instead of multiple.
+
+# 2. Analyses
+
 *Repeat step 4 from last week's prompts using kNN with k = 1.*
 
 *How does kNN compare with logistic regression, LDA, and QDA results you obtained last week? (You can reference last week's report directly. No need to re-run the analyses, unless you want to improve on them.)*
 
+**Figure 1.1** contains the results from kNN with k=1. The results aren't great, especially considering the prevalence of the positive class is 59% but accuracy reported here is 51%. Logistic regression, LDA, and QDA from last week are also much more likely to predict the positive class, with the first two only predicting 15 negative weeks, and QDA predicting no negative weeks. This tells us that on this data, kNN is more pessimistic - our first run with k=1 results in 50 weeks predicted as negative.
+
+In terms of performance, the best results from repeating step 4 are in the k=4 portion at **figure 1.2**, with accuracy at 58%, recall at 67%, specificity at 44%, and precision at 63%. LDA and logistic regression resulted in accuracy at 62%, recall at 92%, specificity at 21%, and precision at 62%. Ignoring the small differences in accuracy and precision, it seems that the main difference here is between recall and specificity, or the true positive rate and true negative rate. That said, the choice of one model over another for this data set would most likely depend on the intended use of the model. If someone's strategy is based on knowing purely when good weeks are, and buying based on that, then they may want to go with logistic/LDA because of their relatively good track record at predicting positive weeks. However, if the trader also wants to predict bad weeks in order to sell at a good time, then kNN might be a good choice. 
+
 *Experiment with different combinations of predictors, including possible transformations and interactions. Experiment with values for k in the kNN classifier. Report the variables, classifier, and associated confusion matrix that appears to provide the best results on the held out data.*
 
-# 1. Data
+In **figure 1.2** I stick with the original specification, just using `lag2` and varying `k`. As stated above, I find the best results with k=4. In **figure 2** I include all lags and `volume`, and again get the best results with k=4, but including all of the variables doesn't offer any predictive lift, so I move on. **Figure 3** shows the results using a full set of interaction terms, and again the results aren't much better. **Figure 4** holds the results from using `lag2` and its higher order polynomial terms, and the results look slightly better, but not as good as the original specification.
 
-# 2. Analyses
+The best kNN models and LDA can be found summarized in **figure 5**. I would say the best results either come from the original model (including just `lag2` with k=4) or the one using higher order polynomials. Again, if correctly identifying positive weeks is more important, LDA wins, but if we're looking for high specificity (true negative rate, or we're interested in the negative class) then the univariate kNN case wins. kNN using polynomial terms is somewhere in the middle between these. 
 
 # 3. Plots and Tables
 
+```{r}
+# *Repeat step 4 from last week's prompts using kNN with k = 1.*
+# need to adapt this to KNN
+# need to define new Xtrain and Xtest then pass them into this
+
+Xtrain = cbind(Xtrain0$lag2)
+Xtest = cbind(Xtest0$lag2)
+
+cm.calc <- function(Xtrain, Xtest, k){
+  # given training and test sets and a value for k, 
+  # trains then predicts,
+  # prints a confusion matrix,
+  # then prints rates calculated from the values of the matrix
+  
+  yhat = knn(Xtrain, Xtest, ytrain, k=k)
+  
+  cm = table(yhat, ytest)
+  accuracy = (cm[2,2]+cm[1,1])/sum(cm)
+  recall = cm[2,2]/sum(cm[,2])
+  specificity = cm[1,1]/sum(cm[,1])
+  precision = cm[2,2]/sum(cm[2,])
+  cat('\nResults for kNN with k =', k, '\n')
+  print(cm)
+  
+  cat('\nAccuracy: ', accuracy)
+  cat('\nRecall: ', recall)
+  cat('\nSpecificity: ', specificity)
+  cat('\nPrecision: ', precision)
+}
+
+#*How does kNN compare with logistic regression, LDA, and QDA results you obtained last week? (You can reference last week's report directly. No need to re-run the analyses, unless you want to improve on them.)*
+
+cm.calc(Xtrain, Xtest, 1)
+```
+\begin{center}\textbf{Figure 1.1 - kNN with k=1}\end{center}
+\hrulefill
+
+```{r}
+#*Experiment with different combinations of predictors, including possible transformations and interactions. Experiment with values for k in the kNN classifier. Report the variables, classifier, and associated confusion matrix that appears to provide the best results on the held out data.*
+
+# since it's relatively simple to use the already-defined train/test sets, vary k here
+
+cm.calc(Xtrain, Xtest, 2)
+cat('\n')
+cm.calc(Xtrain, Xtest, 3)
+cat('\n')
+cm.calc(Xtrain, Xtest, 4)
+cat('\n')
+cm.calc(Xtrain, Xtest, 5)
+```
+\begin{center}\textbf{Figure 1.2 - kNN with k=2 through 5}\end{center}
+\hrulefill
+
+```{r}
+formula = ~ lag1 + lag2 + lag3 + lag4 + lag5 + volume
+Xtrain = model.matrix(formula, data=Xtrain0)
+Xtest = model.matrix(formula, data=Xtest0)
+
+cat('Results using formula', toString(formula), '\n')
+cm.calc(Xtrain, Xtest, 1)
+cat('\n')
+cm.calc(Xtrain, Xtest, 2)
+cat('\n')
+cm.calc(Xtrain, Xtest, 3)
+cat('\n')
+cm.calc(Xtrain, Xtest, 4)
+cat('\n')
+cm.calc(Xtrain, Xtest, 5)
+
+```
+\begin{center}\textbf{Figure 2 - kNN with k=1 through 5, all lags}\end{center}
+\hrulefill
+
+```{r}
+formula = ~ (.-today)^2
+Xtrain = model.matrix(formula, data=Xtrain0)
+Xtest = model.matrix(formula, data=Xtest0)
+cat('Results using formula', toString(formula), '\n')
+
+cm.calc(Xtrain, Xtest, 1)
+cat('\n')
+cm.calc(Xtrain, Xtest, 2)
+cat('\n')
+cm.calc(Xtrain, Xtest, 3)
+cat('\n')
+cm.calc(Xtrain, Xtest, 4)
+cat('\n')
+cm.calc(Xtrain, Xtest, 5)
+```
+\begin{center}\textbf{Figure 3 - kNN with k=1 through 5, interactions}\end{center}
+\hrulefill
+
+```{r}
+formula = ~ lag2 + lag2^2 + lag2^3
+Xtrain = model.matrix(formula, data=Xtrain0)
+Xtest = model.matrix(formula, data=Xtest0)
+cat('Results using formula', toString(formula), '\n')
+
+cm.calc(Xtrain, Xtest, 1)
+cat('\n')
+cm.calc(Xtrain, Xtest, 2)
+cat('\n')
+cm.calc(Xtrain, Xtest, 3)
+cat('\n')
+cm.calc(Xtrain, Xtest, 4)
+cat('\n')
+cm.calc(Xtrain, Xtest, 5)
+```
+\begin{center}\textbf{Figure 4 - kNN with k=1 through 5, higher order terms}\end{center}
+\hrulefill
+
+|             | LDA | kNN, original, k=4 | kNN, higher order, k=4 |
+|-------------|-----|--------------------|------------------------|
+| accuracy    | 62% | 56%                | 55%                    |
+| recall      | 92% | 64%                | 69%                    |
+| specificity | 21% | 44%                | 35%                    |
+| precision   | 62% | 62%                | 60%                    |
+
+\begin{center}\textbf{Figure 5 - Best model summary}\end{center}
+\hrulefill
+
 # 4. Conclusions
+
+In this assignment, I used kNN to classify which weeks the S&P 500 would have positive or negative returns. I found that the results were quite different from last week's parametric methods, logistic regression, LDA, and QDA. The main difference in results can be reflected overall in higher specificity and lower recall than the previous week - logit, LDA, and especially QDA did not predict many weeks with negative return, leading to high recall and low specificity. On the other hand, kNN was more pessimistic which resulted in being better at predicting negative weeks but worse at predicting positive weeks. In the end, the choice of which method is "better" depends on the task and goals involved. 
 
 # 5. Appendix
 
