@@ -62,7 +62,9 @@ wiki$uoc_position[is.na(wiki$uoc_position)] = wiki$otherstatus[is.na(wiki$uoc_po
 wiki$otherstatus = NULL
 wiki$other_position = NULL
 
-df = scale(na.omit(wiki))
+wiki = na.omit(wiki)
+
+df = scale(wiki)
 dim(df)
 # we end up with about 2/3 of the original sample after consolidating and removing nas
 summary(df)
@@ -88,7 +90,6 @@ round(km.2$centers, 4)
 # k-means minimizes within group dispersion and maximizes between group dispersion
 cat('\nBetween ss / Total ss:\n')
 round(km.2$betweenss/km.2$totss, 4)
-
 ```
 \begin{center}\textbf{Figure 2.1 - k-means with k=2}\end{center}
 \hrulefill
@@ -112,6 +113,16 @@ round(km.3$centers, 4)
 # within cluster sum of squares - variance in data set explained by clustering
 cat('\nBetween ss / Total ss:\n')
 round(km.3$betweenss/km.3$totss, 4)
+# INTERPRETATION
+# Group 1 is relatively young and has a few more females than males, and a moderate level of education
+# tend to be from both universities and not use wiki
+# tend to be mixed in their opinions on wiki
+
+# Group 2 is older, more female dominant, with higher levels of education than the other groups
+# Tend to be pessimistic about almost all wiki questions - almost all negative
+
+# group 3 is of average age, but overwhelmingly male, and has the lowest levels of education and experience
+# tend to be registered wiki users and are optimistic about wiki - almost all positive
 ```
 \begin{center}\textbf{Figure 2.2 - k-means with k=3}\end{center}
 \hrulefill
@@ -168,16 +179,21 @@ round(km.5$betweenss/km.5$totss, 4)
 df.dist = dist(df)
 
 hcc = hclust(df.dist)
-hca = hclust(df.dist, method='average')
-hcs = hclust(df.dist, method='single')
-hcce = hclust(df.dist, method='centroid')
 
 plot(hcc, main="Complete Linkage", xlab="", ylab="", sub="")
-plot(hca, main="Average Linkage", xlab="", ylab="", sub="")
-plot(hcs, main="Single Linkage", xlab="", ylab="", sub="")
-plot(hcce, main="Centroid Linkage", xlab="", ylab="", sub="")
+# average, single, and centroid linkage all looks bad
+# omitted here for space
 ```
-\begin{center}\textbf{Figure 3.1 - Hierarchical clustering}\end{center}
+\begin{center}\textbf{Figure X - Hierarchical clustering}\end{center}
+\hrulefill
+
+```{r}
+# CLASSIFICATION 
+
+# might want to look at `im3`, "my colleagues use wikipedia"
+# need to do X/y, stratified train-test-split
+```
+\begin{center}\textbf{Figure X - Classification data preparation}\end{center}
 \hrulefill
 
 # 4. Conclusions
