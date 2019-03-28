@@ -4,10 +4,11 @@ author: "Sebastian Bautista"
 output:
   pdf_document: default
 ---
-
+  
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(comment='>', echo=F)
 options(digits=2)
+library(caret)
 
 wiki = read.csv("wiki4HE.csv", header=T, sep=";", na.strings="?")
 names(wiki) = tolower(names(wiki))
@@ -20,7 +21,7 @@ names(wiki) = tolower(names(wiki))
 # 2. Analyses
 
 *Part 1. First, using unsupervised learning techniques such as PCA and/or clustering methods, your aim is to identify any relationships between the survey items, as well as whether the survey items cluster according to any of the teachers' attributes. Please review the data documentation for the constructs underlying each survey item. There are many variables with missing values, some systematic and some at-random. You will need to think of a way to remedy the missing values. Simply using na.omit() would end up having the possibly uninteresting and incomplete variables dictate who gets to stay in the sample. You'll need to be more selective with the items you include so that your analysis is not completely tilted.*
-
+  
 *Part 2. Next, using classification techniques such as logistic regression, LDA, QDA, and/or kNN, you'll predict the "use behavior" of Wikipedia by teachers based on the teachers' attributes and responses to survey items (or combinations thereof, as per part 1). To this end, you can either pick your favorite Use# variable (there are 5 use behavior survey items), or come up with an aggregate of your choice (the aggregate may or may not utilize all 5 use variables); either way, please justify your choices.*
 
 *Note re: PCA with binary or categorical variables. If you use PCA, please remember to standardize the variables and be careful not to use PCA with binary or categorical variables. There are variants such as "logistic PCA" to deal with binary variables but these require specialized algorithms/packages beyond the classical PCA and we will not be going into these here. Just don't run classical PCA on binary/categorical data!*
@@ -35,7 +36,6 @@ names(wiki) = tolower(names(wiki))
 
 ```{r}
 # DATA EXPLORATION
-
 # counting NAs
 na_count = sapply(wiki, function(y) sum(length(which(is.na(y)))))
 na_count = data.frame(na_count)
@@ -54,14 +54,11 @@ pct_na
 
 ```{r}
 # DATA CLEANING FOR CLUSTERING
-
 # if uoc_position is missing, replace with otherstatus
 # they should have the same exact meaning, just with the distinction of university
 wiki$uoc_position[is.na(wiki$uoc_position)] = wiki$otherstatus[is.na(wiki$uoc_position)]
-
 wiki$otherstatus = NULL
 wiki$other_position = NULL
-
 wiki = na.omit(wiki)
 
 df = scale(wiki)
@@ -74,15 +71,11 @@ summary(df)
 
 ```{r}
 # CLUSTERING
-
 # K-means clustering, k=2
 set.seed(202)
 km.2 = kmeans(df, 2, nstart=50)
-
 cat('K-means clustering with', length(km.2$size), 'clusters of size', km.2$size[1], ',', km.2$size[2])
-
 cat('\nIn percentage terms, the clusters make up ', round(km.2$size[1]/nrow(df), 3), round(km.2$size[2]/nrow(df), 3), 'of the data, respectively')
-
 # cluster means
 cat('\nCluster means:\n')
 round(km.2$centers, 4) 
@@ -97,19 +90,15 @@ round(km.2$betweenss/km.2$totss, 4)
 ```{r}
 # K-means clustering, k=3
 km.3 = kmeans(df, 3, nstart=50)
-
 cat('K-means clustering with', length(km.3$size), 'clusters of size', 
-    km.3$size[1], ',', km.3$size[2], ',', km.3$size[3])
-
+km.3$size[1], ',', km.3$size[2], ',', km.3$size[3])
 cat('\nIn percentage terms, the clusters make up ', 
-    round(km.3$size[1]/nrow(df), 3), round(km.3$size[2]/nrow(df), 3), 
-    round(km.3$size[3]/nrow(df), 3),
-    'of the data, respectively')
-
+round(km.3$size[1]/nrow(df), 3), round(km.3$size[2]/nrow(df), 3), 
+round(km.3$size[3]/nrow(df), 3),
+'of the data, respectively')
 # cluster means
 cat('\nCluster means:\n')
 round(km.3$centers, 4) 
-
 # within cluster sum of squares - variance in data set explained by clustering
 cat('\nBetween ss / Total ss:\n')
 round(km.3$betweenss/km.3$totss, 4)
@@ -117,10 +106,8 @@ round(km.3$betweenss/km.3$totss, 4)
 # Group 1 is relatively young and has a few more females than males, and a moderate level of education
 # tend to be from both universities and not use wiki
 # tend to be mixed in their opinions on wiki
-
 # Group 2 is older, more female dominant, with higher levels of education than the other groups
 # Tend to be pessimistic about almost all wiki questions - almost all negative
-
 # group 3 is of average age, but overwhelmingly male, and has the lowest levels of education and experience
 # tend to be registered wiki users and are optimistic about wiki - almost all positive
 ```
@@ -130,19 +117,15 @@ round(km.3$betweenss/km.3$totss, 4)
 ```{r}
 # K-means clustering, k=4
 km.4 = kmeans(df, 4, nstart=50)
-
 cat('K-means clustering with', length(km.4$size), 'clusters of size', 
-    km.4$size[1], ',', km.4$size[2], ',', km.4$size[3], ',', km.4$size[4])
-
+km.4$size[1], ',', km.4$size[2], ',', km.4$size[3], ',', km.4$size[4])
 cat('\nIn percentage terms, the clusters make up ', 
-    round(km.4$size[1]/nrow(df), 3), round(km.4$size[2]/nrow(df), 3), 
-    round(km.4$size[3]/nrow(df), 3), round(km.4$size[4]/nrow(df), 3),
-    'of the data, respectively')
-
+round(km.4$size[1]/nrow(df), 3), round(km.4$size[2]/nrow(df), 3), 
+round(km.4$size[3]/nrow(df), 3), round(km.4$size[4]/nrow(df), 3),
+'of the data, respectively')
 # cluster means
 cat('\nCluster means:\n')
 round(km.4$centers, 4) 
-
 # within cluster sum of squares - variance in data set explained by clustering
 cat('\nBetween ss / Total ss:\n')
 round(km.4$betweenss/km.4$totss, 4)
@@ -153,20 +136,16 @@ round(km.4$betweenss/km.4$totss, 4)
 ```{r}
 # K-means clustering, k=5
 km.5 = kmeans(df, 5, nstart=50)
-
 cat('K-means clustering with', length(km.5$size), 'clusters of size', 
-    km.5$size[1], ',', km.5$size[2], ',', km.5$size[3], ',', km.5$size[4], ',', km.5$size[5])
-
+km.5$size[1], ',', km.5$size[2], ',', km.5$size[3], ',', km.5$size[4], ',', km.5$size[5])
 cat('\nIn percentage terms, the clusters make up ', 
-    round(km.5$size[1]/nrow(df), 3), round(km.5$size[2]/nrow(df), 3), 
-    round(km.5$size[3]/nrow(df), 3), round(km.5$size[4]/nrow(df), 3),
-    round(km.5$size[5]/nrow(df), 3),
-    'of the data, respectively')
-
+round(km.5$size[1]/nrow(df), 3), round(km.5$size[2]/nrow(df), 3), 
+round(km.5$size[3]/nrow(df), 3), round(km.5$size[4]/nrow(df), 3),
+round(km.5$size[5]/nrow(df), 3),
+'of the data, respectively')
 # cluster means
 cat('\nCluster means:\n')
 round(km.5$centers, 4) 
-
 # within cluster sum of squares - variance in data set explained by clustering
 cat('\nBetween ss / Total ss:\n')
 round(km.5$betweenss/km.5$totss, 4)
@@ -177,9 +156,7 @@ round(km.5$betweenss/km.5$totss, 4)
 ```{r}
 # hierarchical clustering
 df.dist = dist(df)
-
 hcc = hclust(df.dist)
-
 plot(hcc, main="Complete Linkage", xlab="", ylab="", sub="")
 # average, single, and centroid linkage all looks bad
 # omitted here for space
@@ -189,9 +166,16 @@ plot(hcc, main="Complete Linkage", xlab="", ylab="", sub="")
 
 ```{r}
 # CLASSIFICATION 
-
-# might want to look at `im3`, "my colleagues use wikipedia"
+# might want to look at `use4`, "I recommend my colleagues to use Wikipedia"
 # need to do X/y, stratified train-test-split
+
+# create binary dummy from `use4` called `use4d`
+wiki$use4d = ifelse(wiki$use4 < 3, 0, ifelse(wiki$use4 > 3, 1, NA))
+# end up with 447 obs because we drop the 3s. good enough?
+
+#train.index = createDataPartition(wiki$use4d, p=0.5, list=F)
+#train = wiki[train.index,]
+#test = wiki[-train.index]
 ```
 \begin{center}\textbf{Figure X - Classification data preparation}\end{center}
 \hrulefill
