@@ -11,6 +11,7 @@ options(digits=2)
 library(caret)
 library(MASS)
 library(class)
+set.seed(202)
 
 wiki = read.csv("wiki4HE.csv", header=T, sep=";", na.strings="?")
 names(wiki) = tolower(names(wiki))
@@ -18,21 +19,35 @@ names(wiki) = tolower(names(wiki))
 
 # 0. Introduction
 
+In this project, we're using both unsupervised and supervised methods to analyze a data set related to university faculty perceptions and practices surrounding Wikipedia as a resource. First, I clean up the data for clustering, finding that two of the variables are similar in meaning and merging them. After clustering, I find that there are three distinct clusters: people who are older with more years of experience who are pessimistic about Wikipedia, people who are registered Wikipedia users who are optimistic about Wikipedia, and "average" people who don't fall into one of the other two categories.
+
+I then clean up the data more, creating a binary dummy from one of the use variables, creating a 50% stratified train-test-split, and then using parametric and non-parametric classification techniques to predict the binary dummy. I find that LDA performs very well, which speaks to the strict assumptions made by LDA. This is further evidenced by the relatively poor performance of the other techniques. 
+
 # 1. Data
+
+This week, our data set contains 913 instances and 53 features, where each instance is a faculty member and each feature is either something individual to the respondent like `age`, `gender`, years of education, etc., or an answer to a survey question on a 1-5 Likert scale. The data is relatively messy compared to other data we've seen in this course, which means some choices have to be made regarding what data to keep. 
+
+I check out the missing variables in **figure 1.1**. Variables with a lot of missings include `otherstatus` at 59%, `other_position` at 29%, `uoc_position` at 11%, and two of the survey questions. Since `otherstatus` seems to have a nearly identical meaning to `uoc_position`, and since both have missings, I merge the two. The missings in one seem to correspond to the other, and the main distinction is university. I completely drop `other_position`. Data cleaning and preparation  can be found in **figure 1.2**. After performing this step, I am left with 604 observations, or 2/3 of the original data set. By merging `uoc_position` and `otherstatus` whose missings complement each other, I attempt to avoid skewing the data toward one university or the other.
 
 # 2. Analyses
 
 *Part 1. First, using unsupervised learning techniques such as PCA and/or clustering methods, your aim is to identify any relationships between the survey items, as well as whether the survey items cluster according to any of the teachers' attributes. Please review the data documentation for the constructs underlying each survey item. There are many variables with missing values, some systematic and some at-random. You will need to think of a way to remedy the missing values. Simply using na.omit() would end up having the possibly uninteresting and incomplete variables dictate who gets to stay in the sample. You'll need to be more selective with the items you include so that your analysis is not completely tilted.*
+
+Final clustering results using k-means with k=3 can be found in **figure 2.3**. k-means with k=4 and 5 were also run, as well as hierarchical clustering using average linkage, but those results are omitted for the sake of space. The three clusters make up roughly 50%, 25%, and 25% of the sample respectively. 
+
+Cluster 1 is relatively young and has a few more females than males, and is about average in terms of years of experience and levels of education. This largest cluster doesn't skew toward one university or the other, but it has fewer people that are registered wiki users than average. This group also tends to be mixed in their opinions on Wikipedia, not really leaning positive or negative overall. 
+
+Cluster 2 is older, more female dominant, with higher levels of education than the other groups. This group tends to be more pessimistic about all of the survey questions - all of the cluster means for the questions are negative except for `qu4`, where a positive value indicates a negative opinion about Wikipedia. 
+
+Finally, cluster 3 is around average age, but is also overwhelmingly male, and has the lowest average levels of education and experience. These people also tend to be registered Wikipedia users and are optimistic about it; all of the survey question means indicate an overall positive opinion about Wikipedia (the reverse of cluster 2). 
   
 *Part 2. Next, using classification techniques such as logistic regression, LDA, QDA, and/or kNN, you'll predict the "use behavior" of Wikipedia by teachers based on the teachers' attributes and responses to survey items (or combinations thereof, as per part 1). To this end, you can either pick your favorite Use# variable (there are 5 use behavior survey items), or come up with an aggregate of your choice (the aggregate may or may not utilize all 5 use variables); either way, please justify your choices.*
 
-*Note re: PCA with binary or categorical variables. If you use PCA, please remember to standardize the variables and be careful not to use PCA with binary or categorical variables. There are variants such as "logistic PCA" to deal with binary variables but these require specialized algorithms/packages beyond the classical PCA and we will not be going into these here. Just don't run classical PCA on binary/categorical data!*
+For this part, I chose to predict `use4`, "I recommend my colleagues to use Wikipedia". **Figure 3.1** contains the data preparation steps for the classification portion. I first create a binary dummy from `use4` using nested `ifelse` statements, setting any neutral answers to NA and dropping these observations, which results in 447 observations in the classification data set. Then, I split the data 50/50, making sure the split is stratified based on the new binary dummy. 
 
-*Notes re: survey item responses. Survey items are on a 5-point Likert scale ranging from strongly disagree/never (1) to strongly agree/always (5). Because the 5-point scale is ordinal, you can treat it as a "continuous" variable for Part 1. However, please reflect on some of the issues that may arise when using the Likert scale as continuous. To transform a 5-point Likert scale to a binary 2-point scale for Part 2, you could recode responses 1,2 as "No" and 4,5 as "Yes". Reflect on whether you would include the neutral (3) responses. If 3s are included, should they be counted in the "no" or "yes" category? Please justify your choices.*
+**Figures 3.2 through 3.5** hold the results for logistic regression, LDA, QDA, and kNN respectively. A summary table can be found in **figure 4**. Overall, LDA performs the best across the board, which implies that the probability density functions of our X variables conditional on our classes are approximately normally distributed and that the class covariances are identical. These results also show that the relationship between the target variable and our covariates is most likely linear. Out of the four methods used, LDA has the most stringent assumptions, and its relatively high performance indicates that these assumptions are probably being met. 
 
-*Notes re: training set selection. The data set is large enough that you could use 1/3 to 1/2 of it for training and 1/2 to 2/3 of it for testing. Whichever way you decide to split the data, make sure the training set is representative. For example, note that there are 800 entries from University 1 (UOC) and 113 entries in University 2 (UPF). A simple random sample of size 400, say, might miss all University 2 entries, unless you stratify. The same remark applies to the domain variable, e.g., Science: 56 vs Law/Politics: 361. [Note that the domain variable has a code of 6, which corresponds to Social Science. This is not indicated on the UCI archive page but is specified in the companion paper.] You may find the 'caret' package  (Links to an external site.)Links to an external site.useful here, because it has some built-in stratified sampling functions; but you can also just as easily do the stratification yourself.*
-
-*Write up your findings using the usual report guidelines, paying special attention to presentation and cohesiveness. Also, at this point in the class, you should feel comfortable dedicating some portion of the intro and conclusion to discuss the methods themselves: e.g., what are the limitations? why is the technique used appropriately? Please also include your code in an Appendix so that I can replicate your analyses.*
+Logistic regression (**3.2**) almost performs as well as LDA, which makes sense since the two are similar. However, LDA is better at classifying both positive and negative observations. QDA (**3.4**), which relaxes the assumption on equality of class covariances, tends to predict more 0s, which leads to perfect specificity and precision (0 false positives) but low recall (45 false negatives). The non-parametric approach, kNN (**3.5**), appears to perform best at k=5, but still doesn't beat out LDA or logistic regression for that matter - again, this is evidence that the relationship between our y and X is either linear, or at least, best approximated by a line. 
 
 # 3. Plots and Tables
 
@@ -42,48 +57,48 @@ names(wiki) = tolower(names(wiki))
 na_count = sapply(wiki, function(y) sum(length(which(is.na(y)))))
 na_count = data.frame(na_count)
 pct_na = 100 * na_count/nrow(wiki)
-na_count
 pct_na
 # Variables with a lot of missings include 
 # otherstatus (59%)
 # other_position (29%)
 # peu3 (11%)
-# vis (13%)
+# vis2 (13%)
 # uoc_position (12%)
 ```
-\begin{center}\textbf{Figure 1.1}\end{center}
+\begin{center}\textbf{Figure 1.1 - Variables with missing observations, percentages}\end{center}
 \hrulefill
 
-```{r}
+```{r, echo=T}
 # DATA CLEANING FOR CLUSTERING
 # if uoc_position is missing, replace with otherstatus
-# they should have the same exact meaning, just with the distinction of university
+# they should have similar meaning, just with the distinction of university
 wiki$uoc_position[is.na(wiki$uoc_position)] = wiki$otherstatus[is.na(wiki$uoc_position)]
 wiki$otherstatus = NULL
 wiki$other_position = NULL
 wiki = na.omit(wiki)
-wiki$row.names = NULL # if it's null why is it still there??? check out
 
+# scaling for clustering
 df = scale(wiki)
 dim(df)
 # we end up with about 2/3 of the original sample after consolidating and removing nas
-summary(df)
 ```
-\begin{center}\textbf{Figure 1.2}\end{center}
+\begin{center}\textbf{Figure 1.2 - Data cleaning}\end{center}
 \hrulefill
 
 ```{r}
 # CLUSTERING
 # K-means clustering, k=2
-set.seed(202)
+
 km.2 = kmeans(df, 2, nstart=50)
 cat('K-means clustering with', length(km.2$size), 'clusters of size', km.2$size[1], ',', km.2$size[2])
 cat('\nIn percentage terms, the clusters make up ', round(km.2$size[1]/nrow(df), 3), round(km.2$size[2]/nrow(df), 3), 'of the data, respectively')
+
 # cluster means
 cat('\nCluster means:\n')
 round(km.2$centers, 4) 
 # within cluster sum of squares - variance in data set explained by clustering
 # k-means minimizes within group dispersion and maximizes between group dispersion
+
 cat('\nBetween ss / Total ss:\n')
 round(km.2$betweenss/km.2$totss, 4)
 ```
@@ -92,6 +107,7 @@ round(km.2$betweenss/km.2$totss, 4)
 
 ```{r}
 # K-means clustering, k=3
+
 km.3 = kmeans(df, 3, nstart=50)
 cat('K-means clustering with', length(km.3$size), 'clusters of size', 
 km.3$size[1], ',', km.3$size[2], ',', km.3$size[3])
@@ -99,87 +115,31 @@ cat('\nIn percentage terms, the clusters make up ',
 round(km.3$size[1]/nrow(df), 3), round(km.3$size[2]/nrow(df), 3), 
 round(km.3$size[3]/nrow(df), 3),
 'of the data, respectively')
+
 # cluster means
 cat('\nCluster means:\n')
 round(km.3$centers, 4) 
+
 # within cluster sum of squares - variance in data set explained by clustering
 cat('\nBetween ss / Total ss:\n')
 round(km.3$betweenss/km.3$totss, 4)
-# INTERPRETATION
-# Group 1 is relatively young and has a few more females than males, and a moderate level of education
-# tend to be from both universities and not use wiki
-# tend to be mixed in their opinions on wiki
-# Group 2 is older, more female dominant, with higher levels of education than the other groups
-# Tend to be pessimistic about almost all wiki questions - almost all negative
-# group 3 is of average age, but overwhelmingly male, and has the lowest levels of education and experience
-# tend to be registered wiki users and are optimistic about wiki - almost all positive
 ```
-\begin{center}\textbf{Figure 2.2 - k-means with k=3}\end{center}
+\begin{center}\textbf{Figure 2.2 - k-means with k=3 (final)}\end{center}
 \hrulefill
 
-```{r}
-# K-means clustering, k=4
-km.4 = kmeans(df, 4, nstart=50)
-cat('K-means clustering with', length(km.4$size), 'clusters of size', 
-km.4$size[1], ',', km.4$size[2], ',', km.4$size[3], ',', km.4$size[4])
-cat('\nIn percentage terms, the clusters make up ', 
-round(km.4$size[1]/nrow(df), 3), round(km.4$size[2]/nrow(df), 3), 
-round(km.4$size[3]/nrow(df), 3), round(km.4$size[4]/nrow(df), 3),
-'of the data, respectively')
-# cluster means
-cat('\nCluster means:\n')
-round(km.4$centers, 4) 
-# within cluster sum of squares - variance in data set explained by clustering
-cat('\nBetween ss / Total ss:\n')
-round(km.4$betweenss/km.4$totss, 4)
-```
-\begin{center}\textbf{Figure 2.3 - k-means with k=4}\end{center}
-\hrulefill
-
-```{r}
-# K-means clustering, k=5
-km.5 = kmeans(df, 5, nstart=50)
-cat('K-means clustering with', length(km.5$size), 'clusters of size', 
-km.5$size[1], ',', km.5$size[2], ',', km.5$size[3], ',', km.5$size[4], ',', km.5$size[5])
-cat('\nIn percentage terms, the clusters make up ', 
-round(km.5$size[1]/nrow(df), 3), round(km.5$size[2]/nrow(df), 3), 
-round(km.5$size[3]/nrow(df), 3), round(km.5$size[4]/nrow(df), 3),
-round(km.5$size[5]/nrow(df), 3),
-'of the data, respectively')
-# cluster means
-cat('\nCluster means:\n')
-round(km.5$centers, 4) 
-# within cluster sum of squares - variance in data set explained by clustering
-cat('\nBetween ss / Total ss:\n')
-round(km.5$betweenss/km.5$totss, 4)
-```
-\begin{center}\textbf{Figure 2.4 - k-means with k=5}\end{center}
-\hrulefill
-
-```{r}
-# hierarchical clustering
-df.dist = dist(df)
-hcc = hclust(df.dist)
-plot(hcc, main="Complete Linkage", xlab="", ylab="", sub="")
-# average, single, and centroid linkage all looks bad
-# omitted here for space
-```
-\begin{center}\textbf{Figure 2.5 - Hierarchical clustering}\end{center}
-\hrulefill
-
-```{r}
+```{r, echo=T}
 # CLASSIFICATION 
-# might want to look at `use4`, "I recommend my colleagues to use Wikipedia"
-# need to do X/y, stratified train-test-split
-
-# create binary dummy from `use4` called `use4d`
+# using `use4`, "I recommend my colleagues to use Wikipedia"
+# create binary dummy from `use4` called `use4d` and drop original
 wiki$use4d = ifelse(wiki$use4 < 3, 0, ifelse(wiki$use4 > 3, 1, NA))
 wiki$use4 = NULL
-# end up with 447 obs because we drop the 3s. good enough?
+
+# end up with 447 obs because we drop the 3s
 df = na.omit(wiki)
+# scaling for kNN
 scaled = scale(df[,-51])
 
-# train test split
+# stratified 50% train test split
 train = createDataPartition(df$use4d, p=0.5, list=F)
 df.train = df[train,]
 df.test = df[-train,]
@@ -247,7 +207,6 @@ lda = lda(formula=formula, data=df, subset=train)
 cat('LDA results for ')
 print(formula)
 cm.calc(lda)
-# results are really good so the assumptions (conditional normality or something - look up) must be true
 ```
 \begin{center}\textbf{Figure 3.3 - LDA}\end{center}
 \hrulefill
@@ -258,8 +217,7 @@ qda = qda(formula=formula, data=df, subset=train)
 cat('QDA results for ')
 print(formula)
 cm.calc(qda)
-# predicts a ton of 0s which leads to high precision and low recall
-# but actually also has no false positives?
+# predicts a ton of 0s which leads to high precision, low recall, high specificity
 ```
 \begin{center}\textbf{Figure 3.4 - QDA}\end{center}
 \hrulefill
@@ -277,7 +235,7 @@ cm.knn <- function(Xtrain, Xtest, k){
   specificity = cm[1,1]/sum(cm[,1])
   precision = cm[2,2]/sum(cm[2,])
   
-  cat('\nResults for kNN with k =', k, '\n')
+  cat('\n\nResults for kNN with k =', k, '\n')
   print(cm)
   
   cat('\nAccuracy: ', accuracy)
@@ -289,13 +247,25 @@ cm.knn <- function(Xtrain, Xtest, k){
 cm.knn(df.train.sc, df.test.sc, 1)
 cm.knn(df.train.sc, df.test.sc, 2)
 cm.knn(df.train.sc, df.test.sc, 3)
-cm.knn(df.train.sc, df.test.sc, 4) # probably the best
+cm.knn(df.train.sc, df.test.sc, 4)
 cm.knn(df.train.sc, df.test.sc, 5)
 ```
 \begin{center}\textbf{Figure 3.5 - kNN}\end{center}
 \hrulefill
 
+|             | Logistic | LDA | QDA  | kNN, k=5 |
+|-------------|----------|-----|------|----------|
+| accuracy    | 91%      | 96% | 80%  | 90%      |
+| recall      | 89%      | 95% | 32%  | 85%      |
+| specificity | 92%      | 97% | 100% | 92%      |
+| precision   | 83%      | 93% | 100% | 81%      |
+
+\begin{center}\textbf{Figure 4 - Classification summary}\end{center}
+\hrulefill
+
 # 4. Conclusions
+
+In this project, I analyzed a relatively messy data set on faculty perceptions of Wikipedia. After some data cleaning, I was able to keep 2/3 of the sample for clustering and 1/2 for classification. The best results were found using k-means for clustering and LDA for classification. The relative performance of LDA compared to the other techniques hints that the assumptions of conditional normality and homoskedasticity of the covariates are true for this data - conversely, the performance of kNN hints that the relationship truly is best approximated by a line. 
 
 # 5. Appendix
 
