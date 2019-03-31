@@ -1,0 +1,26 @@
+---
+title: "STAT 508 Data Analysis Assignment 12"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>', echo=F)
+options(digits=2)
+```
+
+# 0. Introduction
+
+# 1. Data
+
+# 2. Analyses
+
+# 3. Plots and Tables
+
+# 4. Conclusions
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo=T, eval=F}
+```
