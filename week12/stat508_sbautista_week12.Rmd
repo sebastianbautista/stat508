@@ -1,0 +1,115 @@
+---
+title: "STAT 508 Data Analysis Assignment 12"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>', echo=F)
+options(digits=2)
+
+library(ISLR)
+library(e1071)
+df = OJ
+```
+
+# 0. Introduction
+
+# 1. Data
+
+The data contains 1070 observations and 18 variables, where each observation is a purchase and each variable is a characteristic of the customer or product. Variables include things like price charged for each of the two brands of orange juice, discounts, which store the sale occurred at, and customer brand loyalty. 
+
+# 2. Analyses
+
+*1. Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.*
+
+*2. Fit a support vector classifier to the training data using cost=0.01, with Purchase as the response and the other variables as predictors. Use the summary() function to produce summary statistics, and describe the results obtained.*
+
+*3. What are the training and test error rates?*
+
+*4. Use the tune() function to select an optimal cost. Consider values in the range 0.01 to 10.*
+
+*5. Compute the training and test error rates using this new value for cost.*
+
+*6. Repeat parts 2 through 5 using a support vector machine with a radial kernel. Use the default value for gamma.*
+
+*7. Repeat parts 2 through 5 using a support vector machine with a polynomial kernel. Set degree=2.*
+
+*8. Overall, which approach seems to give the best results on this data?*
+
+# 3. Plots and Tables
+
+```{r}
+# 1. Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.
+
+set.seed(202)
+train = sample(1:nrow(df), 800)
+df.train = df[train,]
+df.test = df[-train,]
+```
+\begin{center}\textbf{Figure 1}\end{center}
+\hrulefill
+
+```{r}
+#2. Fit a support vector classifier to the training data using cost=0.01, with Purchase as the response and the other variables as predictors. Use the summary() function to produce summary statistics, and describe the results obtained.
+
+svc = svm(Purchase ~ ., data=df.train, kernel='linear', cost=0.01, scale=T)
+summary(svc)
+```
+\begin{center}\textbf{Figure 2}\end{center}
+\hrulefill
+
+```{r}
+#3. What are the training and test error rates?
+
+calc.rates <- function(yhat, ytest){
+  # calculates rates from confusion matrix
+  # from predicted and true labels
+  cm = table(yhat, ytest)
+  
+  accuracy = (cm[2,2]+cm[1,1])/sum(cm)
+  recall = cm[2,2]/sum(cm[,2])
+  specificity = cm[1,1]/sum(cm[,1])
+  precision = cm[2,2]/sum(cm[2,])
+  
+  cat('\n')
+  print(cm)
+  
+  cat('\nAccuracy: ', accuracy)
+  cat('\nRecall: ', recall)
+  cat('\nSpecificity: ', specificity)
+  cat('\nPrecision: ', precision)
+  cat('\n')
+}
+
+# training error
+yhat.train = predict(svc, df.train)
+ytrain = df.train$Purchase
+calc.rates(yhat.train, ytrain)
+
+# test error
+yhat = predict(svc, df.test)
+ytest = df.test$Purchase
+calc.rates(yhat, ytest)
+```
+\begin{center}\textbf{Figure 3}\end{center}
+\hrulefill
+
+```{r}
+# 4. Use the tune() function to select an optimal cost. Consider values in the range 0.01 to 10.
+tune.out = tune(svm, Purchase ~ ., data=df.train, kernel='linear',
+                ranges=list(cost=c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 3, 5, 7, 10)))
+
+# check out CV error for each model
+summary(tune.out)
+```
+\begin{center}\textbf{Figure 4}\end{center}
+\hrulefill
+
+# 4. Conclusions
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo=T, eval=F}
+```
