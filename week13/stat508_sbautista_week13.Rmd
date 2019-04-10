@@ -1,0 +1,64 @@
+---
+title: "STAT 508 Data Analysis Assignment 13"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>', echo=F)
+options(digits=2)
+
+library(ISLR)
+library(ROCR)
+df = OJ
+```
+
+# 0. Introduction
+
+# 1. Data
+
+The data contains 1070 observations and 18 variables, where each observation is a purchase and each variable is a characteristic of the customer or product. Variables include things like price charged for each of the two brands of orange juice, discounts, which store the sale occurred at, and customer brand loyalty. 
+
+# 2. Analyses
+
+*1. Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.*
+
+*2. Fit a tree to the training data, with Purchase as the response and the other variables as predictors. Use the summary() function to produce summary statistics about the tree, and describe the results obtained. What is the training error rate? How many terminal nodes does the tree have?*
+
+*3. Type in the name of the tree object in order to get a detailed text output. Pick one of the terminal nodes, and interpret the information displayed.*
+
+*4. Create a plot of the tree, and interpret the results.*
+
+*5. Predict the response on the test data, and produce a confusion matrix comparing the test labels to the predicted test labels. What is the test error rate?*
+
+*6. Apply the cv.tree() function to the training set in order to determine the optimal tree size.*
+
+*7. Produce a plot with tree size on the x-axis and cross-validated classification error rate on the y-axis.*
+
+*8. Which tree size corresponds to the lowest cross-validated classification error rate?*
+
+*9. Produce a pruned tree corresponding to the optimal tree size obtained using cross-validation. If cross-validation does not lead to selection of a pruned tree, then create a pruned tree with five terminal nodes.*
+
+*10. Compare the training error rates between the pruned and unpruned trees. Which is higher?*
+
+*11. Compare the test error rates between the pruned and unpruned trees. Which is higher?*
+
+
+# 3. Plots and Tables
+
+```{r, echo=T}
+set.seed(202)
+train = sample(1:nrow(df), 800)
+df.train = df[train,]
+df.test = df[-train,]
+```
+\begin{center}\textbf{Figure 1.1 - Train-test split}\end{center}
+\hrulefill
+
+# 4. Conclusions
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo=T, eval=F}
+```

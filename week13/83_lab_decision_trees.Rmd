@@ -1,0 +1,127 @@
+---
+title: "8.3 Lab: Decision Trees"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>', echo=T)
+options(digits=2)
+
+library(tree)
+library(ISLR)
+attach(Carseats)
+```
+
+```{r}
+# recoding continuous as binary var
+High = ifelse(Sales<=8, 'No', 'Yes')
+
+# merge new variable with Carseats data
+Carseats = data.frame(Carseats, High)
+
+# fit a classification tree
+tree.carseats = tree(High ~ . - Sales, Carseats)
+summary(tree.carseats)
+# Summary lists the variables used as internal nodes, number of terminal nodes, and training error
+# training error is 9%
+```
+
+```{r}
+# trees can also be graphically displayed
+# plot() displays the structure, text() displays the node labels
+# pretty=0 tells R to include category names for qualitatives rather than a letter
+plot(tree.carseats)
+text(tree.carseats, pretty=0)
+# it seems like ShelveLoc is the most important because of the first split
+```
+
+```{r}
+# if we just type the name of the object, R prints output corresponding to each branch
+# split criterion, # obs, deviance, overall prediction, and fraction of each class
+# asterisks indicate branches that lead to terminal nodes
+tree.carseats
+# getting an error...
+```
+
+```{r}
+# need to evaluate on test set
+set.seed(2)
+train = sample(1:nrow(df), 200)
+df.test = Carseats[-train,]
+High.test = High[-train]
+tree.carseats = tree(High~ . - Sales, Carseats, subset=train)
+tree.pred = predict(tree.carseats, df.test, type='class') # return actual class prediction
+table(tree.pred, High.test)
+(86+57)/200
+# 71.5% accuracy
+```
+
+```{r}
+# cv.tree() performs CV; use FUN=prune.misclass to use classification error to guide the process, rather than deviance (default)
+# size: number of terminal nodes of each tree considered
+# dev: error rate (CV error rate in this instance, not deviation)
+# k: value of the cost-complexity parameter alpha
+
+set.seed(3)
+cv.carseats = cv.tree(tree.carseats, FUN=prune.misclass)
+names(cv.carseats)
+cv.carseats
+# the tree with 9 terminal nodes has the lowest CV error rate
+```
+
+```{r}
+# winner has 9 terminal nodes, 50 cv errors
+# plot error rate as a function of size and k
+par(mfrow=c(1,2))
+plot(cv.carseats$size, cv.carseats$dev, type='b')
+plot(cv.carseats$k, cv.carseats$dev, type='b')
+# as size increases, error rate decreases then increases after 9
+# as k increases, error rate decreases then increases after 1.75
+```
+
+```{r}
+# prune the tree with prune.misclass()
+prune.carseats = prune.misclass(tree.carseats, best=9)
+plot(prune.carseats)
+text(prune.carseats, pretty=0)
+```
+
+```{r}
+# how well does the pruned tree perform on the test data?
+tree.pred = predict(prune.carseats, df.test, type='class')
+table(tree.pred, High.test)
+(94+60)/200
+# 77% accuracy (higher) and tree is more interpretable
+```
+
+```{r}
+# if we increase best, we get a larger pruned tree with lower accuracy
+prune.carseats = prune.misclass(tree.carseats, best=13)
+plot(prune.carseats)
+text(prune.carseats, pretty=0)
+tree.pred = predict(prune.carseats, df.test, type='class')
+table(tree.pred, High.test)
+(86+62)/200
+```
+
+```{r}
+# rf
+library(randomForest)
+library(MASS)
+set.seed(1)
+train = sample(1:nrow(Boston), nrow(Boston)/2)
+bag.boston = randomForest(medv~., data=Boston, subset=train, mtry=6, importance=T)
+bag.boston
+```
+
+```{r}
+set.seed(1)
+boston.test = Boston[-train,'medv']
+rf.boston = randomForest(medv~., data=Boston, subset=train, importance=T)
+yhat.rf = predict(rf.boston, newdata=Boston[-train,])
+mean((yhat.rf - boston.test)^2)
+```
+
+
