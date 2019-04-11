@@ -1,0 +1,210 @@
+---
+title: "STAT 508 Data Analysis Assignment 13"
+author: "Sebastian Bautista"
+output:
+  pdf_document: default
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment='>', echo=F)
+options(digits=4)
+
+library(ISLR)
+library(ROCR)
+library(tree)
+df = OJ
+```
+
+# 0. Introduction
+
+# 1. Data
+
+The data contains 1070 observations and 18 variables, where each observation is a purchase and each variable is a characteristic of the customer or product. Variables include things like price charged for each of the two brands of orange juice, discounts, which store the sale occurred at, and customer brand loyalty. 
+
+# 2. Analyses
+
+*1. Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.*
+
+I split the data into training and test sets in **figure 1.1**. 
+
+*2. Fit a tree to the training data, with Purchase as the response and the other variables as predictors. Use the summary() function to produce summary statistics about the tree, and describe the results obtained. What is the training error rate? How many terminal nodes does the tree have?*
+
+*3. Type in the name of the tree object in order to get a detailed text output. Pick one of the terminal nodes, and interpret the information displayed.*
+
+*4. Create a plot of the tree, and interpret the results.*
+
+*5. Predict the response on the test data, and produce a confusion matrix comparing the test labels to the predicted test labels. What is the test error rate?*
+
+*6. Apply the cv.tree() function to the training set in order to determine the optimal tree size.*
+
+*7. Produce a plot with tree size on the x-axis and cross-validated classification error rate on the y-axis.*
+
+*8. Which tree size corresponds to the lowest cross-validated classification error rate?*
+
+*9. Produce a pruned tree corresponding to the optimal tree size obtained using cross-validation. If cross-validation does not lead to selection of a pruned tree, then create a pruned tree with five terminal nodes.*
+
+*10. Compare the training error rates between the pruned and unpruned trees. Which is higher?*
+
+*11. Compare the test error rates between the pruned and unpruned trees. Which is higher?*
+
+
+# 3. Plots and Tables
+
+```{r, echo=T}
+set.seed(202)
+train = sample(1:nrow(df), 800)
+df.train = df[train,]
+df.test = df[-train,]
+```
+\begin{center}\textbf{Figure 1.1 - Train-test split}\end{center}
+\hrulefill
+
+```{r}
+# 2. Fit a tree to the training data, with Purchase as the response and the other variables as predictors. Use the summary() function to produce summary statistics about the tree, and describe the results obtained. What is the training error rate? How many terminal nodes does the tree have?
+
+tree.fit = tree(Purchase ~ ., df.train)
+summary(tree.fit)
+# 16.8% training misclassification error rate
+# 8 terminal nodes
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# 3. Type in the name of the tree object in order to get a detailed text output. Pick one of the terminal nodes, and interpret the information displayed.
+# tree.fit UNCOMMENT THIS LINE WHEN RUN
+# only works at home
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# 4. Create a plot of the tree, and interpret the results.
+plot(tree.fit)
+text(tree.fit, pretty=0)
+# the most important variable is brand loyalty for Citrus Hill, followed by PriceDiff (MM less CH)
+# only these two variables are involved
+
+# left nodes
+# if someone's loyalty towards CH is < 0.036, they will definitely buy MM
+# if 0.036 < LoyalCH < 0.5, someone will buy CH only if PriceDiff >= 0.31 (MM expensive)
+## otherwise, they will buy MM, and the model is more certain if LoyalCH is < 0.47
+# IN SUMMARY, if loyalCH < 0.5 then someone will only buy CH if it's more than $0.31 cheaper than MM
+
+# right nodes
+# if someone's loyalty towards CH is >= 0.75, they will definitely buy CH
+# if 0.5 < LoyalCH < 0.75, someone will only buy MM if PriceDiff < -0.35 (CH expensive)
+## otherwise if LoyalCH is >= 0.265 or between -0.35 and 0.265 they will buy CH, and the model is more certain if LoyalCH is >= 0.265
+# IN SUMMARY, if loyalCH >= 0.5, someone will only buy MM if it's more than $0.35 cheaper than CH
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# 5. Predict the response on the test data, and produce a confusion matrix comparing the test labels to the predicted test labels. What is the test error rate?
+
+calc.rates <- function(yhat, ytest){
+  # calculates rates from confusion matrix
+  # given yhat and ytest
+  cm = table(yhat, ytest)
+  
+  accuracy = (cm[2,2]+cm[1,1])/sum(cm)
+  error.rate = 1 - accuracy
+  recall = cm[2,2]/sum(cm[,2])
+  specificity = cm[1,1]/sum(cm[,1])
+  precision = cm[2,2]/sum(cm[2,])
+  
+  cat('\n')
+  print(cm)
+  
+  cat('\nAccuracy: ', accuracy)
+  cat('\nError rate: ', error.rate)
+  cat('\nRecall: ', recall)
+  cat('\nSpecificity: ', specificity)
+  cat('\nPrecision: ', precision)
+  cat('\n')
+}
+
+yhat = predict(tree.fit, df.test, type='class')
+ytest = df.test$Purchase
+
+calc.rates(yhat, ytest)
+# test error rate is about 23%
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# 6. Apply the cv.tree() function to the training set in order to determine the optimal tree size.
+
+set.seed(202)
+cv.fit = cv.tree(tree.fit, FUN=prune.misclass)
+cv.fit
+
+best.size = cv.fit$size[which.min(cv.fit$dev)]
+best.k = cv.fit$k[which.min(cv.fit$dev)]
+best.dev = cv.fit$dev[which.min(cv.fit$dev)]
+
+cat('The optimal tree size is', best.size, 'which is associated with k of', best.k,
+    'and', best.dev, 'misclassifications')
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# 7. Produce a plot with tree size on the x-axis and cross-validated classification error rate on the y-axis.
+
+plot(cv.fit$size, cv.fit$dev, type='b')
+# 8. Which tree size corresponds to the lowest cross-validated classification error rate?
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# 9. Produce a pruned tree corresponding to the optimal tree size obtained using cross-validation. If cross-validation does not lead to selection of a pruned tree, then create a pruned tree with five terminal nodes.
+
+tree.pruned = prune.misclass(tree.fit, best=5) 
+# 5 because optimal is unpruned
+# but for some reason it returns a tree with 7 leaves.
+# big jump between best=4 and best=5
+plot(tree.pruned)
+text(tree.pruned, pretty=0)
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# 10. Compare the training error rates between the pruned and unpruned trees. Which is higher?
+
+yhat.fit = predict(tree.fit, df.train, type='class')
+yhat.pruned = predict(tree.pruned, df.train, type='class')
+ytrain = df.train$Purchase
+
+cat('Results for unpruned tree on training data')
+calc.rates(yhat.fit, ytrain)
+cat('\nResults for pruned tree on training data')
+calc.rates(yhat.pruned, ytrain)
+# the results are the same because the 8 and 7 trees are identical. maybe switch to 4 so it's interesting?
+```
+\begin{center}\textbf{Figure X}\end{center}
+\hrulefill
+
+```{r}
+# 11. Compare the test error rates between the pruned and unpruned trees. Which is higher?
+
+yhat.fit = predict(tree.fit, df.test, type='class')
+yhat.pruned = predict(tree.pruned, df.test, type='class')
+
+cat('Results for unpruned tree on test data')
+calc.rates(yhat.fit, ytest)
+cat('\nResults for pruned tree on test data')
+calc.rates(yhat.pruned, ytest)
+```
+
+
+# 4. Conclusions
+
+# 5. Appendix
+
+```{r ref.label=knitr::all_labels(), echo=T, eval=F}
+```
