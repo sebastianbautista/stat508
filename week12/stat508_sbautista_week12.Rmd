@@ -17,11 +17,11 @@ df = OJ
 
 # 0. Introduction
 
-In this assignment, I fit SVMs with linear, radial, and polynomial kernels, calculate error rates, tune them using 10-fold cross-validation, then compare their overall performance. 
+In this assignment, I fit SVMs with linear, radial, and polynomial kernels, calculate error rates, tune them using 10-fold cross-validation, then compare their overall performance. The three models perform very differently when untuned, but when tuned, they come up with fairly similar predictions. I end up calculating ROC curves and the area under the curves, finding that radial SVM is the best for classifying orange juice purchases, though all three have similar performance on the test set. 
 
 # 1. Data
 
-The data contains 1070 observations and 18 variables, where each observation is a purchase and each variable is a characteristic of the customer or product. Variables include things like price charged for each of the two brands of orange juice, discounts, which store the sale occurred at, and customer brand loyalty. 
+The data contains 1070 observations and 18 variables, where each observation is an orange juice purchase and each variable is a characteristic of the customer or product. Variables include things like price charged for each of the two brands of orange juice, discounts, which store the sale occurred at, and customer brand loyalty. 
 
 # 2. Analyses
 
@@ -53,9 +53,13 @@ I tune the radial SVM in **figure 2.3**, settling on cost=5 and and error rate o
 
 *7. Repeat parts 2 through 5 using a support vector machine with a polynomial kernel. Set degree=2.*
 
-Results from the untuned polynomial SVM are in **figure 3.1**. 
+Results from the untuned polynomial SVM are in **figure 3.1**. For this fit, we have even more support vectors than for the radial SVM, at 633. **Figure 3.2** shows the training and test results from the untuned SVM; similarly to the previous run, it overwhelmingly predicts Citrus Hill for both data sets, which results in a high error rate and poor recall. 
+
+Tuning this SVM in **figure 3.3** allows us to settle on cost=7 with an error rate of 0.17, the same error rate we saw in the other runs. This tells us that these three different SVMs, when tuned, have similar performance in cross-validation and may also have similar performance on the test set. **Figure 3.4** contains the training and test set results from the tuned polynomial SVM. The training error rate is 14.75%, the test error rate is 16.67%, and the number of support vectors is 350.
 
 *8. Overall, which approach seems to give the best results on this data?*
+
+In order to have a more general view of how the different approaches perform, I plot ROC curves for all three fitted models using the test data in **figure 4**. SVC is in black, radial SVM is in blue, and polynomial SVM is in orange. As hinted by the identical cross-validation error, the three models perform similarly, which leads to slight differences in the ROC curves. To finally decide on the winner, I calculate the area under the curve (AUROC), which is also reported in the figure. With an AUROC of 0.12, radial SVM just barely beats out polynomial and linear SVM.
 
 # 3. Plots and Tables
 
@@ -234,6 +238,8 @@ summary(tune.out)
 
 bestsvm.p = tune.out$best.model
 
+summary(bestsvm.p)
+
 # training error
 yhat.train = predict(bestsvm.p, df.train)
 calc.rates(yhat.train, ytrain)
@@ -252,8 +258,13 @@ rocplot = function(yhat, ytest, ...){
   predob = prediction(yhat, ytest)
   perf = performance(predob, "tpr", "fpr")
   plot(perf, ...)
+  cat('\n')
+}
+
+auroc = function(yhat, ytest, kernel, ...){
+  predob = prediction(yhat, ytest)
   auc = performance(predob, measure='auc')
-  cat('AUC: ', auc@y.values[[1]])
+  cat('AUC for', kernel, ':', auc@y.values[[1]])
   cat('\n')
 }
 
@@ -265,11 +276,17 @@ rocplot(fitted.r, df[-train,'Purchase'], add=T, col='blue')
 
 fitted.p = attributes(predict(bestsvm.p, df[-train,], decision.values=T))$decision.values
 rocplot(fitted.p, df[-train,'Purchase'], add=T, col='darkorange')
+
+auroc(fitted.l, df[-train,'Purchase'], 'linear (black)')
+auroc(fitted.r, df[-train,'Purchase'], 'radial (blue)')
+auroc(fitted.p, df[-train,'Purchase'], 'polynomial (orange)')
 ```
 \begin{center}\textbf{Figure 4 - ROC plots and AUROC for all SVMs}\end{center}
 \hrulefill
 
 # 4. Conclusions
+
+In this assignment, I fit untuned SVMs using linear, radial, and polynomial kernels, then tuned them using 10-fold cross-validation and reported confusion matrices and results. I found that radial and polynomial SVMs performed quite poorly when `cost` was set very low, but the tuned models all performed similarly well, with radial barely beating the other two in terms of test set performance. In all three cases, a higher value of `cost` allowed for more misclassifications on the training data, which resulted in a lower variance, higher bias classifier that performed better on the test data, and that depended on fewer support vectors for its decision boundary. 
 
 # 5. Appendix
 

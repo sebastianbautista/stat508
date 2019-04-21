@@ -17,6 +17,8 @@ df = OJ
 
 # 0. Introduction
 
+This week, we're learning how to fit and interpret classification trees. We use the same orange juice data as last week. I find that an unpruned tree performs the best on the training and test sets, though since only two variables are used in the tree, it's surprisingly simple to make sense of.
+
 # 1. Data
 
 The data contains 1070 observations and 18 variables, where each observation is a purchase and each variable is a characteristic of the customer or product. Variables include things like price charged for each of the two brands of orange juice, discounts, which store the sale occurred at, and customer brand loyalty. 
@@ -25,28 +27,51 @@ The data contains 1070 observations and 18 variables, where each observation is 
 
 *1. Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.*
 
-I split the data into training and test sets in **figure 1.1**. 
+I split the data into training and test sets in **figure 1**. 
 
 *2. Fit a tree to the training data, with Purchase as the response and the other variables as predictors. Use the summary() function to produce summary statistics about the tree, and describe the results obtained. What is the training error rate? How many terminal nodes does the tree have?*
 
+**Figure 2** contains the training set results from the initial tree fit. Only two variables - `LoyalCH` and `PriceDiff` - are used to construct this tree. There are 8 terminal nodes and the misclassification error rate is 16.8%. 
+
 *3. Type in the name of the tree object in order to get a detailed text output. Pick one of the terminal nodes, and interpret the information displayed.*
+
+The output from printing the tree object is in **figure 3**. The terminal node marked 20 where `LoyalCH` < 0.469 is interesting because its neighboring node, 21, contains the same class label. The difference between these nodes is that 20 contains 80% MM observations and 21 contains 55% MM, so even though they both end up predicting MM, node 20 is relatively more certain about its prediction because it is relatively more pure. This makes sense, because the higher the value for `LoyalCH`, the less likely someone will probably buy MM.
 
 *4. Create a plot of the tree, and interpret the results.*
 
+**Figure 4** contains the plotted tree object. The most important variable is brand loyalty for Citrus Hill, followed by the difference in price (positive indicating expensive MM). Only these two variables are involved.
+
+Starting on the left hand side, if someone's loyalty towards CH is < 0.036, they will definitely buy MM. If 0.036 <= `LoyalCH` < 0.5, someone will buy CH only if MM is more than \$0.31 more expensive than CH. Otherwise, they will buy MM, and the model is even more certain if `LoyalCH` is < 0.47. Put simply, the left hand side says that if `LoyalCH` < 0.5 then someone will only buy CH if it's more than \$0.31 cheaper than MM, and if they're not *extremely* loyal to MM.
+
+On the right hand side, if `LoyalCH` is >= 0.75, they will definitely buy CH. If 0.5 <= `LoyalCH` < 0.75, someone will only buy MM if it's more than \$0.35 cheaper than CH. Otherwise they will buy CH, and the model is more certain if `LoyalCH` is >= 0.265. In summary, if `LoyalCH` >= 0.5, someone will only buy MM if it's more than \$0.35 cheaper than CH, as long as they're not *extremely* loyal to CH. 
+
 *5. Predict the response on the test data, and produce a confusion matrix comparing the test labels to the predicted test labels. What is the test error rate?*
+
+Results from predicting on the test data are in **figure 5**. The test error rate is 22.9%. 
 
 *6. Apply the cv.tree() function to the training set in order to determine the optimal tree size.*
 
+**Figure 6** contains these results. The smallest error rate is found in trees of size 7 and 8, which have identical prediction results because the extra split is based on node purity. These trees of size 7 and 8 are associated with k of 0 and -Inf respectively, and result in 151 misclassifications. I choose size=8 as the best size for simplicity and because that's what `which.min()` returns.
+
 *7. Produce a plot with tree size on the x-axis and cross-validated classification error rate on the y-axis.*
+
+This plot is in **figure 7**. 
 
 *8. Which tree size corresponds to the lowest cross-validated classification error rate?*
 
+Both size 7 and 8 return the lowest CV error rate. 
+
 *9. Produce a pruned tree corresponding to the optimal tree size obtained using cross-validation. If cross-validation does not lead to selection of a pruned tree, then create a pruned tree with five terminal nodes.*
+
+CV did not select a pruned tree, and when doing this I found that setting best=5 in `prune.misclass()` resulted in a 7-node tree, which has identical classification performance to the 8-node tree. Because of this, I created a pruned tree using best=4, which can be found in **figure 8**. This tree simply says that anyone with `LoyalCH` >= 0.5 will buy CH and that people with `LoyalCH` between 0.036 and 0.5 will buy MM unless CH is more than \$0.31 cheaper.
 
 *10. Compare the training error rates between the pruned and unpruned trees. Which is higher?*
 
+**Figure 9** contains the training results between trees. The pruned tree's error rate is 18.13%, higher than the unpruned tree's error rate of 16.75%. 
+
 *11. Compare the test error rates between the pruned and unpruned trees. Which is higher?*
 
+**Figure 10** holds the test set results. Again, the pruned tree has a higher test error rate at 24.07% and the unpruned tree has 22.96%. Judging from these results, it looks like it's important to consider `PriceDiff` for both people very loyal toward CH and those loyal toward MM. 
 
 # 3. Plots and Tables
 
@@ -56,7 +81,7 @@ train = sample(1:nrow(df), 800)
 df.train = df[train,]
 df.test = df[-train,]
 ```
-\begin{center}\textbf{Figure 1.1 - Train-test split}\end{center}
+\begin{center}\textbf{Figure 1 - Train-test split}\end{center}
 \hrulefill
 
 ```{r}
@@ -67,37 +92,22 @@ summary(tree.fit)
 # 16.8% training misclassification error rate
 # 8 terminal nodes
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 2 - Training results}\end{center}
 \hrulefill
 
 ```{r}
 # 3. Type in the name of the tree object in order to get a detailed text output. Pick one of the terminal nodes, and interpret the information displayed.
-# tree.fit UNCOMMENT THIS LINE WHEN RUN
-# only works at home
+tree.fit
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 3 - Printed tree object}\end{center}
 \hrulefill
 
 ```{r}
 # 4. Create a plot of the tree, and interpret the results.
 plot(tree.fit)
 text(tree.fit, pretty=0)
-# the most important variable is brand loyalty for Citrus Hill, followed by PriceDiff (MM less CH)
-# only these two variables are involved
-
-# left nodes
-# if someone's loyalty towards CH is < 0.036, they will definitely buy MM
-# if 0.036 < LoyalCH < 0.5, someone will buy CH only if PriceDiff >= 0.31 (MM expensive)
-## otherwise, they will buy MM, and the model is more certain if LoyalCH is < 0.47
-# IN SUMMARY, if loyalCH < 0.5 then someone will only buy CH if it's more than $0.31 cheaper than MM
-
-# right nodes
-# if someone's loyalty towards CH is >= 0.75, they will definitely buy CH
-# if 0.5 < LoyalCH < 0.75, someone will only buy MM if PriceDiff < -0.35 (CH expensive)
-## otherwise if LoyalCH is >= 0.265 or between -0.35 and 0.265 they will buy CH, and the model is more certain if LoyalCH is >= 0.265
-# IN SUMMARY, if loyalCH >= 0.5, someone will only buy MM if it's more than $0.35 cheaper than CH
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 4 - Tree plot}\end{center}
 \hrulefill
 
 ```{r}
@@ -131,7 +141,7 @@ ytest = df.test$Purchase
 calc.rates(yhat, ytest)
 # test error rate is about 23%
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 5 - Test set results}\end{center}
 \hrulefill
 
 ```{r}
@@ -148,7 +158,7 @@ best.dev = cv.fit$dev[which.min(cv.fit$dev)]
 cat('The optimal tree size is', best.size, 'which is associated with k of', best.k,
     'and', best.dev, 'misclassifications')
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 6 - Cross-validation}\end{center}
 \hrulefill
 
 ```{r}
@@ -157,20 +167,18 @@ cat('The optimal tree size is', best.size, 'which is associated with k of', best
 plot(cv.fit$size, cv.fit$dev, type='b')
 # 8. Which tree size corresponds to the lowest cross-validated classification error rate?
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 7 - Error rate by size}\end{center}
 \hrulefill
 
 ```{r}
 # 9. Produce a pruned tree corresponding to the optimal tree size obtained using cross-validation. If cross-validation does not lead to selection of a pruned tree, then create a pruned tree with five terminal nodes.
 
-tree.pruned = prune.misclass(tree.fit, best=5) 
-# 5 because optimal is unpruned
-# but for some reason it returns a tree with 7 leaves.
-# big jump between best=4 and best=5
+tree.pruned = prune.misclass(tree.fit, best=4) 
+# using best=4 because best=5 results in a 7 node tree
 plot(tree.pruned)
 text(tree.pruned, pretty=0)
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 8 - Pruned tree}\end{center}
 \hrulefill
 
 ```{r}
@@ -184,9 +192,8 @@ cat('Results for unpruned tree on training data')
 calc.rates(yhat.fit, ytrain)
 cat('\nResults for pruned tree on training data')
 calc.rates(yhat.pruned, ytrain)
-# the results are the same because the 8 and 7 trees are identical. maybe switch to 4 so it's interesting?
 ```
-\begin{center}\textbf{Figure X}\end{center}
+\begin{center}\textbf{Figure 9 - Tree comparison, training}\end{center}
 \hrulefill
 
 ```{r}
@@ -200,9 +207,12 @@ calc.rates(yhat.fit, ytest)
 cat('\nResults for pruned tree on test data')
 calc.rates(yhat.pruned, ytest)
 ```
-
+\begin{center}\textbf{Figure 10 - Tree comparison, test}\end{center}
+\hrulefill
 
 # 4. Conclusions
+
+In this assignment, I used trees to classify orange juice purchases, finding that brand loyalty and price difference are the most important things that consumers consider. People generally buy whichever brand they're loyal to unless one brand is more than 30 cents cheaper. I also found that, on this data set, an unpruned tree is better than a pruned tree, especially since the unpruned tree is relatively easy to figure out since it only depends on two variables. The full 8-node unpruned tree also performed just as well as a 7-node tree, which helped illustrate the fact that some splits don't result in any changes in prediction accuracy, but may just come from optimizing node purity.
 
 # 5. Appendix
 
