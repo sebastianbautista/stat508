@@ -30,7 +30,7 @@ ytest = y[-train]
 Load the data, X/y, train-test split.
 
 ```{r}
-
+str(Xtrain)
 ```
 
 

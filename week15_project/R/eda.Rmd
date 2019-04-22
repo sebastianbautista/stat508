@@ -16,6 +16,12 @@ str(df)
 Structure of the data, almost completely numeric. `shares` is the target variable, and all but `url` and `timedelta` are predictive of the target. `timedelta` is probably not that useful (days between the article publication and the dataset acquisition (non-predictive)) and `url` is probably useful just for pulling out the article name if we need it.
 
 ```{r}
+sapply(df, function(x) sum(is.na(x)))
+```
+
+Column-wise missings. Nothing is missing.
+
+```{r}
 summary(df)
 ```
 
