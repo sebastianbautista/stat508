@@ -1,0 +1,42 @@
+---
+title: "RF attempt 1, all vars"
+author: "Sebastian"
+date: "April 22, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(randomForest)
+library(caret)
+
+set.seed(202)
+df = read.csv('../data/OnlineNewsPopularity.csv')
+
+# ignoring url, timedelta, and LDA vars
+df[,c('url', 'timedelta', 'LDA_00', 'LDA_01', 'LDA_02', 'LDA_03', 'LDA_04')] = list(NULL)
+
+train = createDataPartition(df$shares, p=0.66, list=F)
+X = df[,-(ncol(df))]
+y = df$shares
+
+Xtrain = X[train,]
+Xtest = X[-train,]
+ytrain = y[train]
+ytest = y[-train]
+```
+
+Load the data, X/y, train-test split.
+
+```{r}
+
+```
+
+
+
+
+
+
+
+

@@ -1,0 +1,60 @@
+---
+title: "EDA"
+author: "Sebastian"
+date: "April 21, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+df = read.csv('../data/OnlineNewsPopularity.csv')
+```
+
+```{r}
+str(df)
+```
+
+Structure of the data, almost completely numeric. `shares` is the target variable, and all but `url` and `timedelta` are predictive of the target. `timedelta` is probably not that useful (days between the article publication and the dataset acquisition (non-predictive)) and `url` is probably useful just for pulling out the article name if we need it.
+
+```{r}
+summary(df)
+```
+
+Summary of the data. Most likely not using all of these.
+Which ones should we ignore? 
+
+1. `timedelta` because it's non-predictive
+2. Need to figure out the variables beginning with `kw` and what they mean
+3. `LDA` variables probably beyond the scope of this course
+4. `global_subjectivity` - opinions, allegations, desires, beliefs; 0:1
+5. `global_sentiment_polarity` positive-negative polarity
+
+
+
+```{r}
+num = df[, sapply(df, is.numeric)]
+dfcorr = cor(num)
+sort(round(dfcorr, 4)[,'shares'])
+# print rounded correlation coefficients with our target variable
+# max of 11%, min of -5.9%
+```
+
+Pairwise correlation coefficients with `shares`.
+
+```{r}
+hist(df$shares)
+hist(log(df$shares))
+# lots of skew in `shares`
+# might want to consider a log transformation as a dep var
+df$shares.log = log(df$shares)
+```
+
+There's some serious right skew in `shares` and the log transformation looks closer to normal. Should probably try both when predicting.
+
+```{r}
+num = df[, sapply(df, is.numeric)]
+dfcorr = cor(num)
+sort(round(dfcorr, 4)[,'shares.log'])
+```
+
+Pairwise correlation with `shares.log`. Range seems larger. More informative?
+
