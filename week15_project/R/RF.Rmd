@@ -30,9 +30,24 @@ ytest = y[-train]
 Load the data, X/y, train-test split.
 
 ```{r}
-str(Xtrain)
+trControl = trainControl(method='cv', number=3)
+modelLookup(model='rf')
+# only one hyperparameter in this implementation of rf???
+tuneGrid = expand.grid(mtry=c(sqrt(ncol(X)), ncol(X)/4, ncol(X)/3, ncol(X)/2, ncol(X)))
 ```
 
+Set how the cross-validation should be done and look up the available hyperparams for `rf`. We're using 10-fold CV repeated 5 times and there's only one hyperparameter, `mtry`, available for `rf`.
+
+```{r}
+model.rf = train(Xtrain, ytrain, method='rf', 
+                 trControl=trControl, tuneGrid=tuneGrid,
+                 metric='Rsquared', maximize=T)
+plot(model.rf)
+```
+
+```{r}
+varImp(object=model.rf)
+```
 
 
 
