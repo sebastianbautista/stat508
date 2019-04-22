@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(randomForest)
 library(caret)
+library(doParallel)
 
 set.seed(202)
 df = read.csv('../data/OnlineNewsPopularity.csv')
@@ -47,6 +48,9 @@ plot(model.rf)
 
 ```{r}
 varImp(object=model.rf)
+
+saveRDS(model.rf, '../models/rf.rds')
+#model.rf = readRDS('../models/rf.rds')
 ```
 
 

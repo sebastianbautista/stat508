@@ -1,0 +1,111 @@
+---
+title: "Caret"
+author: "Sebastian"
+date: "April 22, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(caret)
+library(glmnet)
+library(kernlab)
+library(doParallel)
+cl <- makePSOCKcluster(5)
+registerDoParallel(cl)
+
+set.seed(202)
+df = read.csv('../data/OnlineNewsPopularity.csv')
+
+# ignoring url, timedelta, and LDA vars
+df[,c('url', 'timedelta', 'LDA_00', 'LDA_01', 'LDA_02', 'LDA_03', 'LDA_04')] = list(NULL)
+
+train = createDataPartition(df$shares, p=0.66, list=F)
+X = df[,-(ncol(df))]
+y = df$shares
+
+Xtrain = X[train,]
+Xtrain.sc = scale(Xtrain)
+Xtest = X[-train,]
+Xtest.sc = scale(Xtest)
+ytrain = y[train]
+ytest = y[-train]
+```
+
+Load the data, X/y, train-test split.
+
+```{r}
+trControl = trainControl(method='cv', number=3)
+modelLookup(model='glmnet')
+```
+
+Set how the cross-validation should be done and look up the available hyperparams for `glmnet`. We're using 3-fold CV and there are two hyperparameters, `alpha` and `lambda`, available for `glmnet`.
+
+```{r}
+model.glmnet = train(Xtrain.sc, ytrain, 
+                     method='glmnet',
+                     trControl=trControl, 
+                     tuneLength=10,
+                     metric='Rsquared', 
+                     maximize=T)
+varImp(object=model.glmnet)
+
+saveRDS(model.glmnet, '../models/glmnet.rds')
+#model.rf = readRDS('../models/rf.rds')
+```
+
+Train the glmnet model using 3 fold CV, report variable importance, and pickle the model. Keywords look really important?
+
+```{r}
+get_best_result = function(caret_fit) {
+  best = which(rownames(caret_fit$results) == rownames(caret_fit$bestTune))
+  best_result = caret_fit$results[best, ]
+  rownames(best_result) = NULL
+  best_result
+}
+
+get_best_result(model.glmnet)
+```
+
+Get hyperparameters for best glmnet fit
+
+```{r}
+# the rsq between two vectors is just the square of their correlation
+rsq <- function (x, y) cor(x, y) ^ 2
+
+yhat.glmnet = predict(model.glmnet, Xtest.sc)
+rsq(ytest, yhat.glmnet)
+# 0.018 - pretty low - evidence against linear?
+```
+
+Test R^2 is pretty low, so using L1/L2 regularization does not really help the linear fit. Should try something non-linear next.
+
+```{r}
+modelLookup(model='svmRadial')
+```
+
+```{r}
+model.rsvm = train(Xtrain.sc, ytrain, 
+                     method='svmRadial',
+                     trControl=trControl, 
+                     tuneLength=5,
+                     metric='Rsquared', 
+                     maximize=T)
+varImp(object=model.rsvm)
+
+saveRDS(model.rsvm, '../models/rsvm.rds')
+```
+
+```{r}
+yhat.rsvm = predict(model.rsvm, Xtest.sc)
+rsq(ytest, yhat.rsvm)
+```
+
+rsvm test R^2 is even lower at 0.014
+
+```{r}
+# run once parallelization is over
+stopCluster(cl)
+```
+
